@@ -1,0 +1,4 @@
+ase
+pymatgen
+google-adk
+litellm
