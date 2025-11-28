@@ -5,6 +5,7 @@ from pathlib import Path
 from .ase_agent import create_ase_agent
 from .data_access import create_data_agent
 from .vision_agent import create_vision_agent
+from .wiki_agent import create_wiki_agent
 from tools.common_tools import read_file, write_file, list_files, execute_code
 from tools.ase_tools import generate_structure_image
 from logging_utils import AgentLoggingMiddleware, FunctionLoggingMiddleware
@@ -13,6 +14,7 @@ from logging_utils import AgentLoggingMiddleware, FunctionLoggingMiddleware
 ase_agent = create_ase_agent()
 data_agent = create_data_agent()
 vision_agent = create_vision_agent()
+wiki_agent = create_wiki_agent()
 
 @ai_function
 async def ask_ase_agent(task: Annotated[str, "Task for the ASE agent"]) -> str:
@@ -29,6 +31,14 @@ async def ask_data_agent(task: Annotated[str, "Task for the Data Access Agent"])
         return await data_agent.run(task)
     except Exception as e:
         return f"Error calling Data Access Agent: {e}"
+
+@ai_function
+async def ask_wiki_agent(task: Annotated[str, "Task for the Wiki Agent"]) -> str:
+    """Delegates a task to the Wiki Agent to search Wikipedia."""
+    try:
+        return await wiki_agent.run(task)
+    except Exception as e:
+        return f"Error calling Wiki Agent: {e}"
 
 @ai_function
 async def visually_inspect_structure(
@@ -82,10 +92,11 @@ def create_coordinator_agent():
             env_file_path=".env"
         ),
         instructions="""You are the Coordinator Agent. You manage a multi-agent system.
-        You have access to three other agents:
+        You have access to four other agents:
         1. Data Access Agent: Can search and download materials.
         2. ASE Agent: Can perform atomic simulations and structure manipulations.
         3. Vision Checking Agent: Can visually inspect structures and answer questions about them.
+        4. Wiki Agent: Can search Wikipedia for concepts and information.
         
         You also have tools to read/write files and execute code in the workspace.
         
@@ -94,10 +105,11 @@ def create_coordinator_agent():
         2. If data is needed, ask the Data Access Agent.
         3. If simulation/modeling is needed, ask the ASE Agent.
         4. If visual inspection or checking is needed, ask the Vision Checking Agent.
-        5. You can coordinate the flow of information between them.
+        5. If general knowledge or concept search is needed, ask the Wiki Agent.
+        6. You can coordinate the flow of information between them.
         
         Always explain your plan to the user.
         """,
-        tools=[ask_ase_agent, ask_data_agent, visually_inspect_structure, read_file, write_file, list_files, execute_code],
+        tools=[ask_ase_agent, ask_data_agent, visually_inspect_structure, ask_wiki_agent, read_file, write_file, list_files, execute_code],
         middleware=[AgentLoggingMiddleware(), FunctionLoggingMiddleware()]
     )

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional, Annotated
 from ase import Atoms
 from ase.io import read
-from ase.build import surface
+from ase.build import surface, make_supercell
 from ase.io import write
 import numpy as np
 import os
@@ -120,14 +120,19 @@ def calculate_distance(folder: str, file_name: str, index1: int, index2: int) ->
     }
 
 @ai_function(name="supercell_generation", description="Generates a supercell from the given structure by repeating it along each axis.")
-def supercell_generation(folder: str, file_name: str, repetitions: list, output_name: Optional[str] = None) -> dict:
+def supercell_generation(folder: str, file_name: str, repetitions: list[int] | list[list[int]], output_name: Optional[str] = None) -> dict:
     """Generates a supercell from the given structure by repeating it along each axis."""
     atoms = _load_atoms(folder, file_name)
     if isinstance(atoms, dict) and "error" in atoms:
         return atoms
     if len(repetitions) != 3:
-        return {"error": "Repetitions must be a list of three integers."}
-    supercell_atoms = atoms.repeat(repetitions)
+        return {"error": "Repetitions must be a list of three integers, or a 3x3 matrix."}
+    
+    # if repetitions is a list of three integers, convert to a diagonal matrix
+    if all(isinstance(x, int) for x in repetitions):
+        repetitions = np.diag(repetitions)
+
+    supercell_atoms = make_supercell(atoms, repetitions)
     if output_name:
         output_file_name = output_name
     else:

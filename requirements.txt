@@ -2,3 +2,4 @@ ase
 pymatgen
 google-adk
 litellm
+python-dotenv
