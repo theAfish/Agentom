@@ -4,7 +4,11 @@ from tools.mp_tools import (
     search_materials_project,
     search_materials_by_formula,
     search_materials_by_chemical_system,
-    search_materials_by_structure,
+    search_materials_by_symmetry,
+    view_data_file,
+    convert_all_data_to_structure_files,
+    convert_one_datus_to_structure_file,
+    sample_data_from_json
 )
 from tools.common_tools import list_files
 
@@ -33,7 +37,11 @@ def create_mp_agent():
             search_materials_project,
             search_materials_by_formula,
             search_materials_by_chemical_system,
-            search_materials_by_structure,
+            search_materials_by_symmetry,
+            view_data_file,
+            convert_all_data_to_structure_files,
+            convert_one_datus_to_structure_file,
+            sample_data_from_json,
             list_files,
         ],
         output_key="last_mp_result",  # Auto-save agent's response

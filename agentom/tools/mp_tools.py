@@ -91,7 +91,7 @@ def _save_dict_to_file(structure_dict: dict, file_name: str = None, target_forma
     pmg_structure = Structure.from_dict(structure_dict)
     # save to the target format using pymatgen's built-in writers
     if file_name is None:
-        prefix = structure_dict.get("material_id", "structure")
+        prefix = structure_dict.get("label", "structure")
         file_name = f"{prefix}.{target_format}"
     else:
         file_name = f"{file_name}.{target_format}"
@@ -107,8 +107,7 @@ def search_materials_by_formula(
     min_energy_above_hull: Optional[float] = None,
     max_energy_above_hull: Optional[float] = None,
     is_stable: Optional[bool] = None,
-    spacegroup_number: Optional[int | list[int]] = None,
-    num_results: Optional[int] = None
+    spacegroup_number: Optional[int | list[int]] = None
 ) -> str:
     """
     Search for materials by chemical formula in Materials Project.
@@ -139,9 +138,6 @@ def search_materials_by_formula(
             spacegroup_number=spacegroup_number,
             fields=IMPORTANT_FIELDS,
         )
-
-        if num_results is not None:
-            docs = docs[:num_results]
     
     # # Serialize results to JSON string for agent
     # results = [{"mpid": doc.material_id, "formula": doc.formula_pretty, "e_hull": doc.energy_above_hull, "structure": doc.structure.as_dict()} for doc in docs]
@@ -162,8 +158,7 @@ def search_materials_by_chemical_system(
     chemical_system: str,
     min_energy_above_hull: Optional[float] = None,
     max_energy_above_hull: Optional[float] = None,
-    spacegroup_symbol: Optional[str | list[str]] = None,
-    num_results: Optional[int] = None
+    spacegroup_symbol: Optional[str | list[str]] = None
 ) -> str:
     """
     Search for materials by chemical system in Materials Project.
@@ -192,8 +187,6 @@ def search_materials_by_chemical_system(
             spacegroup_symbol=spacegroup_symbol,
             fields=IMPORTANT_FIELDS,
         )
-        if num_results is not None:
-            docs = docs[:num_results]
 
     docs_info = _save_docs_to_json(docs, f'mp_search_{chemical_system.replace("-", "_")}.json')
     relative_path = docs_info["relative_path"]
@@ -202,11 +195,10 @@ def search_materials_by_chemical_system(
     return to_agent_info
 
 
-def search_materials_by_structure(
+def search_materials_by_symmetry(
     crystal_system: str,
     spacegroup_number: Optional[int | list[int]] = None,
-    elements: Optional[list[str]] = None,
-    num_results: Optional[int] = None
+    elements: Optional[list[str]] = None
 ) -> str:
     """
     Search for materials by structural properties like spacegroup.
@@ -227,21 +219,159 @@ def search_materials_by_structure(
             spacegroup_number=spacegroup_number,
             crystal_system=crystal_system,
             elements=elements,
-            fields=["material_id", "formula_pretty", "spacegroup_symbol", "density"],
+            fields=IMPORTANT_FIELDS,
         )
-
-        if num_results is not None:
-            docs = docs[:num_results]
     
-    results = [{"material_id": doc.material_id, "formula": doc.formula_pretty, "spacegroup": doc.spacegroup_symbol} for doc in docs]
-    return json.dumps(results) if results else "No materials found."
+    docs_info = _save_docs_to_json(docs, f'mp_search_structure_{crystal_system}.json')
+    relative_path = docs_info["relative_path"]
+    to_agent_info = f"Found {docs_info['num_results']} materials with crystal system {crystal_system}. "
+    to_agent_info += f"The results are stored in {relative_path} for further analysis."
+    return to_agent_info
+
+def view_data_file(file_path: str, view_types: list[str], lines: int) -> str:
+    """Briefly view the contents of a data file (JSON) stored in the workspace.
+    
+    Args:
+        file_path: Relative path to the data file
+        view_types: Types of viewing for each entry. Available types: ['mpid', 'formula', 'e_hull', 'is_stable', 'crystal_system', 'spacegroup_symbol', 'num_elements', 'num_sites'] 
+        lines: Number of entries to view from top
+    """
+    full_path = WORKSPACE_DIR / file_path
+    if not full_path.exists():
+        return f"Error: File not found at {full_path}"
+    
+    try:
+        with open(full_path, "r") as f:
+            data = json.load(f)
+        viewable_fields = ['mpid', 'formula', 'e_hull', 'is_stable', 'crystal_system', 'spacegroup_symbol', 'num_elements', 'num_sites']
+        for vt in view_types:
+            if vt not in viewable_fields:
+                return f"Error: Unsupported view type '{vt}'. Supported types are: {viewable_fields}"
+        # get the viewable info in a csv-like string
+        output_lines = []
+        header = "Index, " + ", ".join(view_types)
+        output_lines.append(header)
+        for i, entry in enumerate(data):
+            line = [str(i)]
+            for vt in view_types:
+                line.append(str(entry.get(vt, "N/A")))
+            output_lines.append(", ".join(line))
+            if i + 1 >= lines:
+                break
+        return "\n".join(output_lines)
+    except Exception as e:
+        return f"Error reading file: {str(e)}"
+    
+def convert_all_data_to_structure_files(
+    data_file: str,
+    target_format: str = "cif"
+) -> str:
+    """Convert all structures in a data file to specified structure files (e.g., CIF).
+    
+    Args:
+        data_file: Relative path to the data file (JSON)
+        target_format: Target structure file format (default: 'cif')
+    """
+    full_path = WORKSPACE_DIR / data_file
+    if not full_path.exists():
+        return f"Error: File not found at {full_path}"
+    
+    try:
+        with open(full_path, "r") as f:
+            data = json.load(f)
+        
+        saved_files = []
+        for entry in data:
+            structure_dict = entry.get("structure")
+            file_name = entry.get("mpid", None)
+            if structure_dict is None:
+                continue
+            relative_path = _save_dict_to_file(structure_dict, target_format=target_format, file_name=file_name)
+            saved_files.append(str(relative_path))
+        
+        return f"Converted and saved {len(saved_files)} structures to {target_format} files under {OUTPUT_DIR.relative_to(WORKSPACE_DIR)}."
+    except Exception as e:
+        return f"Error processing file: {str(e)}"
+    
+def convert_one_datus_to_structure_file(
+    data_file: str,
+    index: int,
+    target_format: str = "cif"
+) -> str:
+    """Convert one structure in a data file to specified structure file (e.g., CIF).
+    
+    Args:
+        data_file: Relative path to the data file (JSON)
+        index: Index of the structure entry to convert (0-based)
+        target_format: Target structure file format (default: 'cif')
+    """
+    full_path = WORKSPACE_DIR / data_file
+    if not full_path.exists():
+        return f"Error: File not found at {full_path}"
+    
+    try:
+        with open(full_path, "r") as f:
+            data = json.load(f)
+        
+        if index < 0 or index >= len(data):
+            return f"Error: Index {index} out of range. File contains {len(data)} entries."
+        
+        entry = data[index]
+        structure_dict = entry.get("structure")
+        file_name = entry.get("mpid", None)
+        if structure_dict is None:
+            return f"Error: No structure found in entry at index {index}."
+        
+        relative_path = _save_dict_to_file(structure_dict, target_format=target_format, file_name=file_name)
+        return f"Converted and saved structure at index {index} to {relative_path}."
+    except Exception as e:
+        return f"Error processing file: {str(e)}"
 
 
-
-
-if __name__ == "__main__":
-    # debug the search functions
-    # print(search_materials_by_formula("H2O", min_energy_above_hull=0, max_energy_above_hull=5.0, is_stable=False, num_results=5))
-    # print(search_materials_by_chemical_system("Fe-O", min_energy_above_hull=0, max_energy_above_hull=2.0, spacegroup_symbol=["Fm-3m"], num_results=5))
-
-    pass
+def sample_data_from_json(data_file: str, **filters) -> str:
+    """
+    Sample/filter data from a JSON dataset based on target properties.
+    
+    Args:
+        data_file: Relative path to the data file (JSON)
+        **filters: Keyword arguments for filtering, e.g., crystal_system='cubic', num_sites=10
+                  Supports exact matches for the specified fields.
+                  Available fields: ['mpid', 'formula', 'e_hull', 'is_stable', 'crystal_system', 'spacegroup_symbol', 'num_elements', 'num_sites']
+    
+    Returns:
+        A string summary of the sampling results.
+    """
+    full_path = WORKSPACE_DIR / data_file
+    if not full_path.exists():
+        return f"Error: File not found at {full_path}"
+    
+    try:
+        with open(full_path, "r") as f:
+            data = json.load(f)
+        
+        # Filter the data based on provided filters
+        filtered_data = []
+        for entry in data:
+            match = True
+            for key, value in filters.items():
+                if key not in entry or entry[key] != value:
+                    match = False
+                    break
+            if match:
+                filtered_data.append(entry)
+        
+        if not filtered_data:
+            return f"No materials matched the specified filters in {data_file}."
+        
+        # Save filtered data to a new JSON file
+        original_stem = Path(data_file).stem
+        sampled_filename = f"sampled_{original_stem}.json"
+        sampled_path = TEMP_DIR / sampled_filename
+        with open(sampled_path, "w") as f:
+            json.dump(filtered_data, f, default=str)
+        
+        relative_path = sampled_path.relative_to(WORKSPACE_DIR)
+        return f"Sampled {len(filtered_data)} materials matching the filters. Results saved to {relative_path}."
+    
+    except Exception as e:
+        return f"Error processing file: {str(e)}"
