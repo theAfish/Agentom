@@ -1,18 +1,16 @@
 import os
 import ast
+from pathlib import Path
 from RestrictedPython import compile_restricted, safe_globals, limited_builtins, utility_builtins
 
-# Define the workspace directory
-# We assume this file is in agentom/tools/common_tools.py
-# So workspace is ../../workspace relative to this file
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WORKSPACE = os.path.join(BASE_DIR, "workspace")
-os.makedirs(WORKSPACE, exist_ok=True)
+from agentom.config import WORKSPACE_DIR
 
-def safe_path(rel_path: str) -> str:
+WORKSPACE = WORKSPACE_DIR
+
+def safe_path(rel_path: str) -> Path:
     """Resolve relative path to absolute within workspace and prevent escapes."""
-    full_path = os.path.normpath(os.path.join(WORKSPACE, rel_path))
-    if not full_path.startswith(WORKSPACE):
+    full_path = (WORKSPACE / rel_path).resolve()
+    if not full_path.is_relative_to(WORKSPACE):
         raise ValueError("Access denied: Path outside workspace")
     return full_path
 
@@ -69,7 +67,9 @@ def list_files(directory: str) -> str:
     """
     try:
         path = safe_path(directory)
-        files = os.listdir(path)
+        if not path.is_dir():
+            return f"Error: {directory} is not a directory"
+        files = [f.name for f in path.iterdir() if f.is_file()]
         return '\n'.join(files)
     except Exception as e:
         return f"Error: {e}"

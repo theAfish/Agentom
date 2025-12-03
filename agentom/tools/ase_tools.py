@@ -14,11 +14,7 @@ import sys
 import matplotlib.pyplot as plt
 from ase.visualize.plot import plot_atoms
 
-
-# Adjust paths for agentom structure
-BASE_DIR = Path(__file__).resolve().parent.parent
-WORKSPACE_DIR = BASE_DIR / "workspace"
-OUTPUT_DIR = WORKSPACE_DIR / "outputs"
+from agentom.config import BASE_DIR, WORKSPACE_DIR, OUTPUT_DIR
 
 
 def list_all_files():
@@ -194,7 +190,7 @@ def generate_structure_image(folder: str, file_name: str, output_image_name: str
         return {"error": str(e)}
 
 def run_python_script(script_name: str) -> dict:
-    """Runs a Python script in the workspace."""
+    """Runs a Python script in the workspace using Docker for safety."""
     
     # script_name should be relative to WORKSPACE_DIR
     script_path = WORKSPACE_DIR / script_name
@@ -213,8 +209,21 @@ def run_python_script(script_name: str) -> dict:
         return {"error": f"File not found: {resolved_path}"}
     
     try:
+        # Build the Docker image if not already built
+        image_name = "agentom-runner"
+        build_result = subprocess.run(
+            ["docker", "build", "-t", image_name, "."],
+            cwd=BASE_DIR,
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        if build_result.returncode != 0:
+            return {"error": f"Failed to build Docker image: {build_result.stderr}"}
+        
+        # Run the script in Docker
         result = subprocess.run(
-            [sys.executable, str(resolved_path)],
+            ["docker", "run", "--rm", "-v", f"{WORKSPACE_DIR}:/workspace", "-w", "/workspace", image_name, "python", script_name],
             cwd=WORKSPACE_DIR,
             capture_output=True,
             text=True,

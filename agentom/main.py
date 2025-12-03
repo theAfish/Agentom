@@ -1,7 +1,7 @@
 import os
 import asyncio
 from agents.coordinator import create_coordinator_agent
-from logging_utils import CustomLoggingPlugin
+from logging_utils import CustomLoggingPlugin, logger
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
@@ -10,6 +10,10 @@ from google.genai import types
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKSPACE = os.path.join(BASE_DIR, 'workspace')
 os.makedirs(WORKSPACE, exist_ok=True)
+
+# Ensure logs folder exists under workspace
+LOG_DIR = os.path.join(WORKSPACE, 'logs')
+os.makedirs(LOG_DIR, exist_ok=True)
 
 # Constants for session management
 APP_NAME = "agentom_materials_science"
@@ -37,6 +41,7 @@ async def call_agent_async(query: str, runner: Runner, user_id: str, session_id:
         The agent's final response text
     """
     print(f"\n>>> User: {query}")
+    logger.info(f"User Query: {query}")
     
     # Prepare the user's message in ADK format
     content = types.Content(role="user", parts=[types.Part(text=query)])
@@ -59,6 +64,7 @@ async def call_agent_async(query: str, runner: Runner, user_id: str, session_id:
             break  # Stop processing events once the final response is found
     
     print(f"<<< Agent: {final_response_text}")
+    logger.info(f"Agent Response: {final_response_text}")
     return final_response_text
 
 
@@ -108,13 +114,13 @@ async def main():
         agent=coordinator,
         app_name=APP_NAME,
         session_service=session_service,
-        # plugins=[CustomLoggingPlugin()]  # Optional: add logging plugin if available
+        plugins=[CustomLoggingPlugin()]  # Optional: add logging plugin if available
     )
     print(f"✅ Runner created for agent '{runner.agent.name}'")
     
     print("\n" + "=" * 70)
     print("Agent Team Ready! Available agents:")
-    print("  • data_access_agent - Materials Project search & download")
+    print("  • mp_agent - Materials Project search & download")
     print("  • ase_agent - Atomic simulations & structure manipulation")
     print("  • vision_agent - Structure visualization & analysis")
     print("  • wiki_agent - Materials science information")

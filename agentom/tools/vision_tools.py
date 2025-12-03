@@ -3,9 +3,7 @@ import base64
 import os
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-WORKSPACE_DIR = BASE_DIR / "workspace"
-ENV_PATH = BASE_DIR / ".env"
+from agentom.config import BASE_DIR, WORKSPACE_DIR, ENV_PATH
 
 def load_env(env_path):
     if os.path.exists(env_path):

@@ -1,7 +1,7 @@
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 from .ase_agent import create_ase_agent
-from .data_access import create_data_agent
+from .mp_agent import create_mp_agent
 from .vision_agent import create_vision_agent
 from .wiki_agent import create_wiki_agent
 
@@ -16,7 +16,7 @@ def create_coordinator_agent():
     """
     # Create all specialized sub-agents
     ase_agent = create_ase_agent()
-    data_agent = create_data_agent()
+    mp_agent = create_mp_agent()
     vision_agent = create_vision_agent()
     wiki_agent = create_wiki_agent()
     
@@ -27,7 +27,7 @@ def create_coordinator_agent():
         instruction=(
             "You are the Coordinator Agent orchestrating a specialized team for materials science research. "
             "You have four specialist sub-agents available: "
-            "1. 'data_access_agent': Searches and downloads material structures from Materials Project. "
+            "1. 'mp_agent': Searches and downloads material structures from Materials Project. "
             "2. 'ase_agent': Performs atomic simulations and structure manipulations using ASE. "
             "3. 'vision_agent': Visually analyzes and inspects atomic structure images. "
             "4. 'wiki_agent': Provides information about materials science concepts and properties. "
@@ -38,6 +38,6 @@ def create_coordinator_agent():
             "Provide clear, synthesized responses to the user based on the agents' results."
         ),
         tools=[],  # Coordinator uses delegation, not direct tools
-        sub_agents=[ase_agent, data_agent, vision_agent, wiki_agent],  # Enable auto-delegation
+        sub_agents=[ase_agent, mp_agent, vision_agent, wiki_agent],  # Enable auto-delegation
         output_key="last_coordination_result",  # Auto-save coordinator's response
     )
