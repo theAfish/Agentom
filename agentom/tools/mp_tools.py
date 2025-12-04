@@ -9,7 +9,7 @@ from ase import Atoms
 from pymatgen.core.structure import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 
-from agentom.config import BASE_DIR, WORKSPACE_DIR, OUTPUT_DIR, TEMP_DIR
+from agentom.settings import settings
 
 
 IMPORTANT_FIELDS = [
@@ -77,10 +77,10 @@ def _save_docs_to_json(docs: list, filename: str) -> Path:
         "structure": doc.structure.as_dict()
     } for doc in docs]
 
-    file_path = TEMP_DIR / filename
+    file_path = settings.TEMP_DIR / filename
     docs_info = {
         "num_results": len(results),
-        "relative_path": file_path.relative_to(WORKSPACE_DIR),
+        "relative_path": file_path.relative_to(settings.WORKSPACE_DIR),
     }
     with open(file_path, "w") as f:
         json.dump(results, f, default=str)
@@ -95,9 +95,9 @@ def _save_dict_to_file(structure_dict: dict, file_name: str = None, target_forma
         file_name = f"{prefix}.{target_format}"
     else:
         file_name = f"{file_name}.{target_format}"
-    full_path = OUTPUT_DIR / file_name
+    full_path = settings.OUTPUT_DIR / file_name
     pmg_structure.to(filename=full_path)
-    relative_path = full_path.relative_to(WORKSPACE_DIR)
+    relative_path = full_path.relative_to(settings.WORKSPACE_DIR)
     return relative_path
 
 # search with elements
@@ -236,7 +236,7 @@ def view_data_file(file_path: str, view_types: list[str], lines: int) -> str:
         view_types: Types of viewing for each entry. Available types: ['mpid', 'formula', 'e_hull', 'is_stable', 'crystal_system', 'spacegroup_symbol', 'num_elements', 'num_sites'] 
         lines: Number of entries to view from top
     """
-    full_path = WORKSPACE_DIR / file_path
+    full_path = settings.WORKSPACE_DIR / file_path
     if not full_path.exists():
         return f"Error: File not found at {full_path}"
     
@@ -272,7 +272,7 @@ def convert_all_data_to_structure_files(
         data_file: Relative path to the data file (JSON)
         target_format: Target structure file format (default: 'cif')
     """
-    full_path = WORKSPACE_DIR / data_file
+    full_path = settings.WORKSPACE_DIR / data_file
     if not full_path.exists():
         return f"Error: File not found at {full_path}"
     
@@ -289,7 +289,7 @@ def convert_all_data_to_structure_files(
             relative_path = _save_dict_to_file(structure_dict, target_format=target_format, file_name=file_name)
             saved_files.append(str(relative_path))
         
-        return f"Converted and saved {len(saved_files)} structures to {target_format} files under {OUTPUT_DIR.relative_to(WORKSPACE_DIR)}."
+        return f"Converted and saved {len(saved_files)} structures to {target_format} files under {settings.OUTPUT_DIR.relative_to(settings.WORKSPACE_DIR)}."
     except Exception as e:
         return f"Error processing file: {str(e)}"
     
@@ -305,7 +305,7 @@ def convert_one_datus_to_structure_file(
         index: Index of the structure entry to convert (0-based)
         target_format: Target structure file format (default: 'cif')
     """
-    full_path = WORKSPACE_DIR / data_file
+    full_path = settings.WORKSPACE_DIR / data_file
     if not full_path.exists():
         return f"Error: File not found at {full_path}"
     
@@ -341,7 +341,7 @@ def sample_data_from_json(data_file: str, **filters) -> str:
     Returns:
         A string summary of the sampling results.
     """
-    full_path = WORKSPACE_DIR / data_file
+    full_path = settings.WORKSPACE_DIR / data_file
     if not full_path.exists():
         return f"Error: File not found at {full_path}"
     
@@ -366,11 +366,11 @@ def sample_data_from_json(data_file: str, **filters) -> str:
         # Save filtered data to a new JSON file
         original_stem = Path(data_file).stem
         sampled_filename = f"sampled_{original_stem}.json"
-        sampled_path = TEMP_DIR / sampled_filename
+        sampled_path = settings.TEMP_DIR / sampled_filename
         with open(sampled_path, "w") as f:
             json.dump(filtered_data, f, default=str)
         
-        relative_path = sampled_path.relative_to(WORKSPACE_DIR)
+        relative_path = sampled_path.relative_to(settings.WORKSPACE_DIR)
         return f"Sampled {len(filtered_data)} materials matching the filters. Results saved to {relative_path}."
     
     except Exception as e:

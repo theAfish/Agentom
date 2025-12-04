@@ -3,3 +3,5 @@ pymatgen
 google-adk
 litellm
 python-dotenv
+pydantic
+pydantic-settings

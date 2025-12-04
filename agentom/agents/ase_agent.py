@@ -1,17 +1,28 @@
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools.function_tool import FunctionTool
-from tools.ase_tools import (
-    list_all_files,
+from agentom.tools.ase_tools import (
     read_structure,
     read_structures_in_text,
     calculate_distance,
     supercell_generation,
     create_surface_slab,
-    run_python_script,
+    check_close_atoms,
 )
-from tools.common_tools import write_file
+from agentom.tools.common_tools import list_all_files, write_file, run_python_script
 
+agent_description = "Expert in atomic simulation using ASE. Handles structure manipulation, supercell generation, and atomic calculations."
+agent_instruction = """
+You are an expert in atomic simulation using ASE (Atomic Simulation Environment). Your ONLY tasks are: 
+1. Read and analyze atomic structures from files.
+2. Write python scripts to perform structure manipulation and modeling.
+3. Build structures according to user specifications.
+4. Execute scripts to perform calculations, modeling and return results.
+5. Please ensure all generated structures are physically reasonable.
+Always verify file existence before operations and provide clear error messages if operations fail.
+If you need to search for materials from external databases like Materials Project, you can delegate to mp_agent.
+Do not engage in tasks outside your scope.
+"""
 
 def create_ase_agent():
     """
@@ -23,19 +34,8 @@ def create_ase_agent():
     return Agent(
         model=LiteLlm("openai/qwen3-max"),
         name="ase_agent",
-        description="Expert in atomic simulation using ASE. Handles structure manipulation, supercell generation, and atomic calculations.",
-        instruction=(
-            "You are an expert in atomic simulation using ASE (Atomic Simulation Environment). "
-            "Your ONLY tasks are: "
-            "1. Read and analyze atomic structures from files. "
-            "2. Calculate distances between atoms. "
-            "3. Generate supercells from structures. "
-            "4. Create surface slabs. "
-            "5. Write structures to files. "
-            "6. Execute Python scripts for complex simulations. "
-            "Always verify file existence before operations and provide clear error messages if operations fail. "
-            "Do not engage in tasks outside your scope."
-        ),
+        description=agent_description,
+        instruction=agent_instruction,
         tools=[
             list_all_files,
             read_structure,
@@ -44,7 +44,8 @@ def create_ase_agent():
             supercell_generation,
             create_surface_slab,
             write_file,
-            FunctionTool(run_python_script, require_confirmation=True),
+            check_close_atoms,
+            FunctionTool(run_python_script)#, require_confirmation=True),
         ],
         output_key="last_ase_result",  # Auto-save agent's response
     )

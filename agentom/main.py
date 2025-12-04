@@ -1,25 +1,20 @@
-import os
 import asyncio
-from agents.coordinator import create_coordinator_agent
-from logging_utils import CustomLoggingPlugin, logger
+import sys
+from pathlib import Path
+
+# Add the parent directory to sys.path to ensure agentom package is resolvable
+current_dir = Path(__file__).resolve().parent
+parent_dir = current_dir.parent
+if str(parent_dir) not in sys.path:
+    sys.path.append(str(parent_dir))
+
+from agentom.factory import AgentFactory
+from agentom.logging_utils import CustomLoggingPlugin, logger
+from agentom.settings import settings
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
-
-# Ensure workspace exists
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-WORKSPACE = os.path.join(BASE_DIR, 'workspace')
-os.makedirs(WORKSPACE, exist_ok=True)
-
-# Ensure logs folder exists under workspace
-LOG_DIR = os.path.join(WORKSPACE, 'logs')
-os.makedirs(LOG_DIR, exist_ok=True)
-
-# Constants for session management
-APP_NAME = "agentom_materials_science"
-USER_ID = "materials_scientist"
-SESSION_ID = "session_001"
-
+from agentom.utils import clear_temp_dir, clear_workspace
 
 async def call_agent_async(query: str, runner: Runner, user_id: str, session_id: str) -> str:
     """
@@ -79,9 +74,12 @@ async def main():
     4. Interact with the agent team using async patterns
     """
     print("=" * 70)
-    print("Initializing Multi-Agent Materials Science System (Google ADK)")
+    print(f"Initializing {settings.APP_NAME} (Google ADK)")
     print("=" * 70)
     
+    # Ensure directories exist
+    settings.ensure_directories()
+
     # --- Session Management ---
     # SessionService stores conversation history & state
     # InMemorySessionService is simple, non-persistent storage
@@ -89,21 +87,21 @@ async def main():
     
     # Define initial state with user preferences (example for future enhancement)
     initial_state = {
-        "workspace_path": WORKSPACE,
+        "workspace_path": str(settings.WORKSPACE_DIR),
         "interaction_count": 0,
     }
     
     # Create the session for this interaction
     session = await session_service.create_session(
-        app_name=APP_NAME,
-        user_id=USER_ID,
-        session_id=SESSION_ID,
+        app_name=settings.APP_NAME,
+        user_id=settings.USER_ID,
+        session_id=settings.SESSION_ID,
         state=initial_state,
     )
-    print(f"✅ Session created: App='{APP_NAME}', User='{USER_ID}', Session='{SESSION_ID}'")
+    print(f"✅ Session created: App='{settings.APP_NAME}', User='{settings.USER_ID}', Session='{settings.SESSION_ID}'")
     
     # --- Create Coordinator Agent (Root Agent) ---
-    coordinator = create_coordinator_agent()
+    coordinator = AgentFactory.create_coordinator_agent()
     print(f"✅ Coordinator Agent '{coordinator.name}' initialized with {len(coordinator.sub_agents)} sub-agents:")
     for sub_agent in coordinator.sub_agents:
         print(f"   - {sub_agent.name}: {sub_agent.description}")
@@ -112,7 +110,7 @@ async def main():
     # Runner orchestrates agent execution
     runner = Runner(
         agent=coordinator,
-        app_name=APP_NAME,
+        app_name=settings.APP_NAME,
         session_service=session_service,
         plugins=[CustomLoggingPlugin()]  # Optional: add logging plugin if available
     )
@@ -143,8 +141,8 @@ async def main():
             await call_agent_async(
                 query=user_input,
                 runner=runner,
-                user_id=USER_ID,
-                session_id=SESSION_ID,
+                user_id=settings.USER_ID,
+                session_id=settings.SESSION_ID,
             )
             
         except KeyboardInterrupt:
@@ -153,6 +151,10 @@ async def main():
         except Exception as e:
             print(f"\n❌ An error occurred: {e}")
             print("   Please try again or type 'exit' to quit.\n")
+    
+    # Clean up temporary files after the session
+    clear_temp_dir()
+    clear_workspace()
 
 
 if __name__ == "__main__":
@@ -160,4 +162,14 @@ if __name__ == "__main__":
         asyncio.run(main())
     except Exception as e:
         print(f"Fatal error: {e}")
+    finally:
+        # Ensure temporary files and workspace are cleaned up on exit
+        try:
+            from agentom.utils import clear_temp_dir, clear_workspace
+            clear_temp_dir()
+            clear_workspace()
+        except Exception as _:
+            # Avoid masking original exceptions; log to stderr
+            import traceback, sys
+            traceback.print_exc(file=sys.stderr)
 

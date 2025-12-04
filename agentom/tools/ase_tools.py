@@ -6,40 +6,24 @@ from typing import Optional
 from ase import Atoms
 from ase.io import read
 from ase.build import surface, make_supercell
+from ase.data import covalent_radii
+from ase.geometry import get_distances
 from ase.io import write
 import numpy as np
 import os
-import subprocess
-import sys
 import matplotlib.pyplot as plt
 from ase.visualize.plot import plot_atoms
 
-from agentom.config import BASE_DIR, WORKSPACE_DIR, OUTPUT_DIR
-
-
-def list_all_files():
-    """Lists all files available in the workspace directory, in a tree-like structure, with their relative subfolder paths as keys."""
-    if not WORKSPACE_DIR.exists():
-        return {"files": []}
-    files = {}
-    for path in WORKSPACE_DIR.rglob("*"):
-        if path.is_file():
-            try:
-                subfolder = path.parent.relative_to(WORKSPACE_DIR)
-                files.setdefault(str(subfolder), []).append(path.name)
-            except ValueError:
-                # Handle case where path is not relative to WORKSPACE_DIR (should not happen with rglob)
-                pass
-    return {"files": files}
+from agentom.settings import settings
 
 
 def _load_atoms(folder: str, file_name: str) -> Atoms:
     """Loads an ASE `Atoms` object from disk."""
     # Handle folder being "." or empty string
     if folder == "." or folder == "":
-        file_path = WORKSPACE_DIR / file_name
+        file_path = settings.WORKSPACE_DIR / file_name
     else:
-        file_path = WORKSPACE_DIR / folder / file_name
+        file_path = settings.WORKSPACE_DIR / folder / file_name
         
     if not file_path.exists():
         return {"error": f"File not found: {file_path}"}
@@ -72,9 +56,9 @@ def read_structure(folder: str, file_name: str) -> dict:
 def read_structures_in_text(folder: str, file_name: str) -> dict:
     """Read the raw structure file in text format as a string, if agents want to see and check."""
     if folder == "." or folder == "":
-        file_path = WORKSPACE_DIR / file_name
+        file_path = settings.WORKSPACE_DIR / file_name
     else:
-        file_path = WORKSPACE_DIR / folder / file_name
+        file_path = settings.WORKSPACE_DIR / folder / file_name
         
     if not file_path.exists():
         return {"error": f"File not found: {file_path}"}
@@ -127,9 +111,9 @@ def supercell_generation(folder: str, file_name: str, repetitions: list[int] | l
         output_file_name = output_name
     else:
         output_file_name = f"supercell_{file_name}"
-    output_file_path = OUTPUT_DIR / output_file_name
-    if not OUTPUT_DIR.exists():
-        os.makedirs(OUTPUT_DIR)
+    output_file_path = settings.OUTPUT_DIR / output_file_name
+    if not settings.OUTPUT_DIR.exists():
+        os.makedirs(settings.OUTPUT_DIR)
     write(output_file_path, supercell_atoms)
     return {
         "original_file": file_name,
@@ -151,9 +135,9 @@ def create_surface_slab(folder: str, file_name: str, miller_indices: list, layer
             output_file_name = output_name
         else:
             output_file_name = f"slab_{file_name}"
-        output_file_path = OUTPUT_DIR / output_file_name
-        if not OUTPUT_DIR.exists():
-            os.makedirs(OUTPUT_DIR)
+        output_file_path = settings.OUTPUT_DIR / output_file_name
+        if not settings.OUTPUT_DIR.exists():
+            os.makedirs(settings.OUTPUT_DIR)
         write(output_file_path, slab)
         return {
 			"original_file": file_name,
@@ -171,9 +155,9 @@ def generate_structure_image(folder: str, file_name: str, output_image_name: str
     if isinstance(atoms, dict) and "error" in atoms:
         return atoms
     
-    output_file_path = OUTPUT_DIR / output_image_name
-    if not OUTPUT_DIR.exists():
-        os.makedirs(OUTPUT_DIR)
+    output_file_path = settings.OUTPUT_DIR / output_image_name
+    if not settings.OUTPUT_DIR.exists():
+        os.makedirs(settings.OUTPUT_DIR)
         
     try:
         # Use ASE's plot_atoms and matplotlib to save with custom DPI
@@ -184,55 +168,50 @@ def generate_structure_image(folder: str, file_name: str, output_image_name: str
         plt.close(fig)
         return {
             "original_file": file_name,
-            "output_image_file": str(output_file_path.relative_to(WORKSPACE_DIR)),
+            "output_image_file": str(output_file_path.relative_to(settings.WORKSPACE_DIR)),
         }
     except Exception as e:
         return {"error": str(e)}
 
-def run_python_script(script_name: str) -> dict:
-    """Runs a Python script in the workspace using Docker for safety."""
+def check_close_atoms(folder: str, file_name: str, tolerance: float = 0.0) -> dict:
+    """
+    Checks for atoms that are too close to each other, using covalent radii plus tolerance. 
+    This tool is useful for validating structures.
+    """
+    atoms = _load_atoms(folder, file_name)
+    if isinstance(atoms, dict) and "error" in atoms:
+        return atoms
     
-    # script_name should be relative to WORKSPACE_DIR
-    script_path = WORKSPACE_DIR / script_name
+    positions = atoms.positions
+    cell = atoms.cell
+    pbc = atoms.pbc
     
-    # Resolve the path to handle symlinks, relative components, etc.
-    try:
-        resolved_path = script_path.resolve()
-    except Exception as e:
-        return {"error": f"Failed to resolve script path: {str(e)}"}
+    distances, indices = get_distances(positions, cell=cell, pbc=pbc)
     
-    # Ensure the script is within the workspace to prevent path traversal
-    if not resolved_path.is_relative_to(WORKSPACE_DIR):
-        return {"error": "Script path is outside the workspace"}
-    
-    if not resolved_path.exists():
-        return {"error": f"File not found: {resolved_path}"}
-    
-    try:
-        # Build the Docker image if not already built
-        image_name = "agentom-runner"
-        build_result = subprocess.run(
-            ["docker", "build", "-t", image_name, "."],
-            cwd=BASE_DIR,
-            capture_output=True,
-            text=True,
-            timeout=300
-        )
-        if build_result.returncode != 0:
-            return {"error": f"Failed to build Docker image: {build_result.stderr}"}
-        
-        # Run the script in Docker
-        result = subprocess.run(
-            ["docker", "run", "--rm", "-v", f"{WORKSPACE_DIR}:/workspace", "-w", "/workspace", image_name, "python", script_name],
-            cwd=WORKSPACE_DIR,
-            capture_output=True,
-            text=True,
-            timeout=120
-        )
-        return {
-            "return_code": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr
-        }
-    except Exception as e:
-        return {"error": str(e)}
+    close_pairs = []
+    for i in range(len(atoms)):
+        for j in range(i+1, len(atoms)):
+            dist_vector = distances[i, j]
+            dist = float(np.linalg.norm(dist_vector))
+            r1 = covalent_radii[atoms[i].number]
+            r2 = covalent_radii[atoms[j].number]
+            min_dist = r1 + r2 + tolerance
+            if dist < min_dist:
+                close_pairs.append({
+                    "atom1": {
+                        "index": i,
+                        "symbol": atoms[i].symbol,
+                    },
+                    "atom2": {
+                        "index": j,
+                        "symbol": atoms[j].symbol,
+                    },
+                    "distance_angstrom": round(dist, 3),
+                    "min_distance_angstrom": round(float(min_dist), 3),
+                })
+    num_close = len(close_pairs)
+    return {
+        "file": file_name,
+        "number_of_detected_close_pairs": num_close,
+        "close_pairs": close_pairs,
+    }

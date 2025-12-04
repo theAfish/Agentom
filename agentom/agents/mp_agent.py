@@ -1,6 +1,6 @@
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
-from tools.mp_tools import (
+from agentom.tools.mp_tools import (
     search_materials_project,
     search_materials_by_formula,
     search_materials_by_chemical_system,
@@ -10,7 +10,7 @@ from tools.mp_tools import (
     convert_one_datus_to_structure_file,
     sample_data_from_json
 )
-from tools.common_tools import list_files
+from agentom.tools.common_tools import list_files
 
 
 def create_mp_agent():
@@ -30,6 +30,7 @@ def create_mp_agent():
             "1. Search for materials using various criteria (formula, chemical system, structure). "
             "2. Download structure files for found materials. "
             "3. List available files. "
+            "If you need to analyze or manipulate atomic structures, you can delegate to ase_agent. "
             "Do not perform simulations or other tasks. "
             "Always provide the user with clear information about search results and download status."
         ),

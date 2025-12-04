@@ -1,16 +1,17 @@
 import os
 import ast
 from pathlib import Path
-from RestrictedPython import compile_restricted, safe_globals, limited_builtins, utility_builtins
+# from RestrictedPython import compile_restricted, safe_globals, limited_builtins, utility_builtins
+import subprocess
+import sys
 
-from agentom.config import WORKSPACE_DIR
+from agentom.settings import settings
 
-WORKSPACE = WORKSPACE_DIR
 
 def safe_path(rel_path: str) -> Path:
     """Resolve relative path to absolute within workspace and prevent escapes."""
-    full_path = (WORKSPACE / rel_path).resolve()
-    if not full_path.is_relative_to(WORKSPACE):
+    full_path = (settings.WORKSPACE_DIR / rel_path).resolve()
+    if not full_path.is_relative_to(settings.WORKSPACE_DIR):
         raise ValueError("Access denied: Path outside workspace")
     return full_path
 
@@ -68,11 +69,28 @@ def list_files(directory: str) -> str:
     try:
         path = safe_path(directory)
         if not path.is_dir():
-            return f"Error: {directory} is not a directory"
+            return {"error": f"{directory} is not a directory"}
         files = [f.name for f in path.iterdir() if f.is_file()]
-        return '\n'.join(files)
+        return {"files": '\n'.join(files)}
     except Exception as e:
-        return f"Error: {e}"
+        return {"error": str(e)}
+
+
+def list_all_files():
+    """Lists all files available in the workspace directory, in a tree-like structure, with their relative subfolder paths as keys."""
+    if not settings.WORKSPACE_DIR.exists():
+        return {"files": []}
+    files = {}
+    for path in settings.WORKSPACE_DIR.rglob("*"):
+        if path.is_file():
+            try:
+                subfolder = path.parent.relative_to(settings.WORKSPACE_DIR)
+                files.setdefault(str(subfolder), []).append(path.name)
+            except ValueError:
+                # Handle case where path is not relative to WORKSPACE_DIR (should not happen with rglob)
+                pass
+    return {"files": files}
+
 
 class CodeValidator(ast.NodeVisitor):
     """AST visitor to block additional dangerous patterns (optional pre-check)."""
@@ -83,37 +101,50 @@ class CodeValidator(ast.NodeVisitor):
             raise ValueError(f"Prohibited call: {node.func.id}")
         self.generic_visit(node)
 
-
-# def execute_code(filepath: str) -> str:
-#     """Execute a Python file within the workspace after validation and in restricted mode. Returns output or error.
+def run_python_script(script_name: str) -> dict:
+    """Runs a Python script in the workspace using Docker for safety."""
     
-#     Args:
-#         filepath: Relative path to Python file to execute
-#     """
-#     try:
-#         path = safe_path(filepath)
-#         with open(path, 'r') as f:
-#             code = f.read()
-
-#         # Optional: Pre-validate with AST
-#         tree = ast.parse(code)
-#         CodeValidator().visit(tree)
-
-#         # Prepare restricted globals
-#         restricted_globals = safe_globals.copy()
-#         restricted_globals['__builtins__'] = limited_builtins.copy()
-#         restricted_globals['__builtins__'].update(utility_builtins)
-#         restricted_globals['__builtins__']['open'] = safe_open  # Override with confined open
-#         restricted_globals['makedirs'] = safe_makedirs  # Provide for dir creation (code can call makedirs('subdir'))
-#         # Add more safe builtins/functions as needed (e.g., print, len, etc., are already in limited_builtins)
-
-#         local_ns = {}
-
-#         # Compile and exec with restrictions
-#         byte_code = compile_restricted(code, filename='<restricted_code>', mode='exec')
-#         exec(byte_code, restricted_globals, local_ns)
-
-#         return "Execution successful"  # Or capture output (e.g., via io.StringIO redirecting stdout)
-
-#     except Exception as e:
-#         return f"Error: {e}"
+    # script_name should be relative to WORKSPACE_DIR
+    script_path = settings.WORKSPACE_DIR / script_name
+    
+    # Resolve the path to handle symlinks, relative components, etc.
+    try:
+        resolved_path = script_path.resolve()
+    except Exception as e:
+        return {"error": f"Failed to resolve script path: {str(e)}"}
+    
+    # Ensure the script is within the workspace to prevent path traversal
+    if not resolved_path.is_relative_to(settings.WORKSPACE_DIR):
+        return {"error": "Script path is outside the workspace"}
+    
+    if not resolved_path.exists():
+        return {"error": f"File not found: {resolved_path}"}
+    
+    try:
+        # Build the Docker image if not already built
+        image_name = "agentom-runner"
+        build_result = subprocess.run(
+            ["docker", "build", "-t", image_name, "."],
+            cwd=settings.BASE_DIR,
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        if build_result.returncode != 0:
+            return {"error": f"Failed to build Docker image: {build_result.stderr}"}
+        
+        # Run the script in Docker
+        result = subprocess.run(
+            ["docker", "run", "--rm", "-v", f"{settings.WORKSPACE_DIR}:/workspace", "-w", "/workspace", image_name, "python", script_name],
+            cwd=settings.WORKSPACE_DIR,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        return {
+            "return_code": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr
+        }
+    except Exception as e:
+        return {"error": str(e)}
