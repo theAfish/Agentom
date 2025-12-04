@@ -10,3 +10,6 @@ logs/
 _debug/
 
 workspace/
+
+
+.pytest_cache/

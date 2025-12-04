@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
 
     # App Info
-    APP_NAME: str = "agentom_materials_science"
+    APP_NAME: str = "agentom"
     USER_ID: str = "materials_scientist"
     SESSION_ID: str = "session_001"
     

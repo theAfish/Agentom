@@ -1,6 +1,6 @@
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
-from .ase_agent import create_ase_agent
+from .structure_agent import create_structure_agent
 from .mp_agent import create_mp_agent
 from .vision_agent import create_vision_agent
 from .wiki_agent import create_wiki_agent
@@ -16,16 +16,12 @@ def create_coordinator_agent():
     Uses ADK's automatic delegation (auto-flow) mechanism via sub_agents parameter.
     """
     # Create all specialized sub-agents
-    ase_agent = create_ase_agent()
+    structure_agent = create_structure_agent()
     mp_agent = create_mp_agent()
     vision_agent = create_vision_agent()
     wiki_agent = create_wiki_agent()
     
-    # Enable direct communication between ase_agent and mp_agent
-    # Note: Explicit sub_agents assignment creates a cycle which breaks graph visualization.
-    # Peer agents can transfer to each other via the root coordinator without this explicit link.
-    ase_agent.sub_agents = [vision_agent]
-    # mp_agent.sub_agents = [ase_agent]
+    structure_agent.sub_agents = [vision_agent]
     
     return Agent(
         model=LiteLlm("openai/qwen3-max"),
@@ -46,6 +42,6 @@ def create_coordinator_agent():
             "Provide clear, synthesized responses to the user based on the agents' results."
         ),
         tools=[list_all_files],
-        sub_agents=[ase_agent, mp_agent, wiki_agent],  # Enable auto-delegation
+        sub_agents=[structure_agent, mp_agent, wiki_agent],  # Enable auto-delegation
         output_key="last_coordination_result",  # Auto-save coordinator's response
     )

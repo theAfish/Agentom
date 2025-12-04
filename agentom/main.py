@@ -119,7 +119,7 @@ async def main():
     print("\n" + "=" * 70)
     print("Agent Team Ready! Available agents:")
     print("  • mp_agent - Materials Project search & download")
-    print("  • ase_agent - Atomic simulations & structure manipulation")
+    print("  • structure_agent - Atomic simulations & structure manipulation")
     print("  • vision_agent - Structure visualization & analysis")
     print("  • wiki_agent - Materials science information")
     print("\nType 'exit' or 'quit' to stop.\n")
@@ -131,7 +131,7 @@ async def main():
             user_input = input("\nYou: ").strip()
             
             if user_input.lower() in ["exit", "quit"]:
-                print("\nThank you for using the Materials Science Agent Team. Goodbye!")
+                print("\nThank you for using the Materials Modelling Agent Team. Goodbye!")
                 break
             
             if not user_input:

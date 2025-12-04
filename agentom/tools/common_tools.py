@@ -93,16 +93,52 @@ def list_all_files():
 
 
 class CodeValidator(ast.NodeVisitor):
-    """AST visitor to block additional dangerous patterns (optional pre-check)."""
-    prohibited_calls = {'eval', 'exec', 'compile', '__import__'}  # RestrictedPython handles most imports
+    """AST visitor to block dangerous patterns."""
+    
+    def __init__(self):
+        self.prohibited_names = {'eval', 'exec', 'compile', '__import__', 'input'}
+        self.prohibited_modules = {'subprocess', 'shutil', 'importlib'}
+        self.prohibited_os_attrs = {
+            'system', 'popen', 'spawnl', 'spawnle', 'spawnlp', 'spawnlpe', 
+            'spawnv', 'spawnve', 'spawnvp', 'spawnvpe', 'execl', 'execle', 
+            'execlp', 'execlpe', 'execv', 'execve', 'execvp', 'execvpe', 
+            'fork', 'kill'
+        }
 
     def visit_Call(self, node):
-        if isinstance(node.func, ast.Name) and node.func.id in self.prohibited_calls:
-            raise ValueError(f"Prohibited call: {node.func.id}")
+        # Check function calls like eval(...)
+        if isinstance(node.func, ast.Name):
+            if node.func.id in self.prohibited_names:
+                raise ValueError(f"Prohibited function call: {node.func.id}")
+        
+        # Check method calls like os.system(...)
+        elif isinstance(node.func, ast.Attribute):
+            if isinstance(node.func.value, ast.Name) and node.func.value.id == 'os':
+                if node.func.attr in self.prohibited_os_attrs:
+                    raise ValueError(f"Prohibited os function call: os.{node.func.attr}")
+        
+        self.generic_visit(node)
+
+    def visit_Import(self, node):
+        for alias in node.names:
+            name = alias.name.split('.')[0]
+            if name in self.prohibited_modules:
+                raise ValueError(f"Prohibited module import: {name}")
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node):
+        if node.module:
+            name = node.module.split('.')[0]
+            if name in self.prohibited_modules:
+                raise ValueError(f"Prohibited module import: {name}")
+            if name == 'os':
+                for alias in node.names:
+                    if alias.name in self.prohibited_os_attrs:
+                        raise ValueError(f"Prohibited import from os: {alias.name}")
         self.generic_visit(node)
 
 def run_python_script(script_name: str) -> dict:
-    """Runs a Python script in the workspace using Docker for safety."""
+    """Runs a Python script in the workspace directly."""
     
     # script_name should be relative to WORKSPACE_DIR
     script_path = settings.WORKSPACE_DIR / script_name
@@ -120,22 +156,20 @@ def run_python_script(script_name: str) -> dict:
     if not resolved_path.exists():
         return {"error": f"File not found: {resolved_path}"}
     
+    # Validate code safety
     try:
-        # Build the Docker image if not already built
-        image_name = "agentom-runner"
-        build_result = subprocess.run(
-            ["docker", "build", "-t", image_name, "."],
-            cwd=settings.BASE_DIR,
-            capture_output=True,
-            text=True,
-            timeout=300
-        )
-        if build_result.returncode != 0:
-            return {"error": f"Failed to build Docker image: {build_result.stderr}"}
-        
-        # Run the script in Docker
+        with open(resolved_path, 'r') as f:
+            code_content = f.read()
+        tree = ast.parse(code_content)
+        validator = CodeValidator()
+        validator.visit(tree)
+    except Exception as e:
+        return {"error": f"Security check failed: {str(e)}"}
+    
+    try:
+        # Run the script directly
         result = subprocess.run(
-            ["docker", "run", "--rm", "-v", f"{settings.WORKSPACE_DIR}:/workspace", "-w", "/workspace", image_name, "python", script_name],
+            [sys.executable, str(resolved_path)],
             cwd=settings.WORKSPACE_DIR,
             capture_output=True,
             text=True,

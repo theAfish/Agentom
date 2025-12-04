@@ -1,11 +1,18 @@
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
-from agentom.tools.ase_tools import generate_structure_image
+from agentom.tools.structure_tools import generate_structure_image
 from agentom.tools.vision_tools import get_image_content
-from agentom.tools.common_tools import list_files
+from agentom.tools.common_tools import list_all_files
 
-
-
+agent_description = "Vision specialist for analyzing atomic structures. Inspects and interprets structure images."
+agent_instruction = """
+You are a Vision Checking Agent specialized in analyzing atomic structures from images. Your ONLY tasks are: 
+1. Generate images of atomic structures. 
+2. Visually inspect and analyze structure images. 
+3. Answer questions about structural properties based on visual inspection. 
+Always explain what you see in the image to justify your analysis. 
+Do not perform simulations or data lookups - that's for other agents.
+"""
 
 
 def create_vision_agent():
@@ -18,16 +25,8 @@ def create_vision_agent():
     return Agent(
         model=LiteLlm("openai/qwen3-omni-flash"),
         name="vision_agent",
-        description="Vision specialist for analyzing atomic structures. Inspects and interprets structure images.",
-        instruction=(
-            "You are a Vision Checking Agent specialized in analyzing atomic structures from images. "
-            "Your ONLY tasks are: "
-            "1. Generate images of atomic structures. "
-            "2. Visually inspect and analyze structure images. "
-            "3. Answer questions about structural properties based on visual inspection. "
-            "Always explain what you see in the image to justify your analysis. "
-            "Do not perform simulations or data lookups - that's for other agents."
-        ),
-        tools=[generate_structure_image, get_image_content],
+        description=agent_description,
+        instruction=agent_instruction,
+        tools=[generate_structure_image, get_image_content, list_all_files],
         output_key="last_vision_result",  # Auto-save agent's response
     )

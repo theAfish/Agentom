@@ -39,30 +39,6 @@ def _get_mp_api_key() -> str | None:
     return os.getenv("MP_API_KEY")
 
 
-def search_materials_project(query: str) -> str:
-    """
-    Search for materials in Materials Project.
-    This is a placeholder function.
-    
-    Args:
-        query: Search query for Materials Project
-    """
-    # Ensure we have an API key from environment or .env
-    api_key = _get_mp_api_key()
-    if not api_key:
-        raise RuntimeError(
-            "MP_API_KEY not set. Please set the environment variable `MP_API_KEY` "
-            "or add `MP_API_KEY=your_key` to a .env file in the project root."
-        )
-
-    # This is a mock search; in a real implementation, use mpr.query or similar.
-    # Keep the MPRester context usage for when a real call is implemented.
-    with MPRester(api_key=api_key) as mpr:
-        pass
-
-    return f"Searching Materials Project for: {query}. (Mock result: Found mp-1234, mp-5678)"
-
-
 # Under construction
 def _save_docs_to_json(docs: list, filename: str) -> Path:
     results = [{
@@ -102,7 +78,7 @@ def _save_dict_to_file(structure_dict: dict, file_name: str = None, target_forma
 
 # search with elements
 
-def search_materials_by_formula(
+def download_materials_info_by_formula(
     formula: str,
     min_energy_above_hull: Optional[float] = None,
     max_energy_above_hull: Optional[float] = None,
@@ -110,8 +86,8 @@ def search_materials_by_formula(
     spacegroup_number: Optional[int | list[int]] = None
 ) -> str:
     """
-    Search for materials by chemical formula in Materials Project.
-    This search will return materials matching the given formula, with optional filters.
+    Download materials information by chemical formula from Materials Project.
+    This function will return materials matching the given formula, with optional filters.
     
     Args:
         formula: Chemical formula (e.g., 'Fe2O3' or 'Fe2O*' for wildcard)
@@ -154,15 +130,15 @@ def search_materials_by_formula(
     return to_agent_info
 
 
-def search_materials_by_chemical_system(
+def download_materials_info_by_chemical_system(
     chemical_system: str,
     min_energy_above_hull: Optional[float] = None,
     max_energy_above_hull: Optional[float] = None,
     spacegroup_symbol: Optional[str | list[str]] = None
 ) -> str:
     """
-    Search for materials by chemical system in Materials Project.
-    This search will return materials within the specified chemical system, with optional filters.
+    Download materials information by chemical system from Materials Project.
+    This function will return materials within the specified chemical system, with optional filters.
     
     Args:
         chemical_system: Chemical system (e.g., 'Fe-O' for iron-oxygen compounds)
@@ -195,13 +171,13 @@ def search_materials_by_chemical_system(
     return to_agent_info
 
 
-def search_materials_by_symmetry(
+def download_materials_info_by_symmetry(
     crystal_system: str,
     spacegroup_number: Optional[int | list[int]] = None,
     elements: Optional[list[str]] = None
 ) -> str:
     """
-    Search for materials by structural properties like spacegroup.
+    Download materials information by structural properties like spacegroup.
     
     Args:
         crystal_system: Crystal system (e.g., 'cubic', 'hexagonal')
@@ -227,6 +203,32 @@ def search_materials_by_symmetry(
     to_agent_info = f"Found {docs_info['num_results']} materials with crystal system {crystal_system}. "
     to_agent_info += f"The results are stored in {relative_path} for further analysis."
     return to_agent_info
+
+
+def download_materials_info_by_mpid(
+    mpids: list[str]
+) -> str:
+    """
+    Download materials information by Materials Project IDs (mpids).
+    
+    Args:
+        mpids: List of Materials Project IDs (e.g., ['mp-149', 'mp-13'])
+    """
+    api_key = _get_mp_api_key()
+    if not api_key:
+        raise RuntimeError("MP_API_KEY not set. Please set the environment variable `MP_API_KEY` "
+        "or add it to a .env file in the project root.")
+    with MPRester(api_key=api_key) as mpr:
+        docs = mpr.materials.summary.search(
+            material_id=mpids,
+            fields=IMPORTANT_FIELDS,
+        )
+    docs_info = _save_docs_to_json(docs, f'mp_download_mpids.json')
+    relative_path = docs_info["relative_path"]
+    to_agent_info = f"Downloaded {docs_info['num_results']} materials for given mpids. "
+    to_agent_info += f"The results are stored in {relative_path} for further analysis."
+    return to_agent_info
+
 
 def view_data_file(file_path: str, view_types: list[str], lines: int) -> str:
     """Briefly view the contents of a data file (JSON) stored in the workspace.
