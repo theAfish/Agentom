@@ -262,8 +262,7 @@ def build_interface(
     substrate_structure: str,
     film_miller: tuple = (1, 0, 0),
     substrate_miller: tuple = (1, 1, 1),
-    output_file: Optional[str] = None,
-    output_format: Optional[str] = "cif",
+    output_file_name: Optional[str] = None,
     max_area: Optional[float] = 400.0,
     max_length_tol: Optional[float] = 0.03,
     max_angle_tol: Optional[float] = 0.01,
@@ -282,7 +281,7 @@ def build_interface(
     - substrate_structure: File path for the substrate material structure.
     - film_miller: Miller index for the film surface (default: (1, 0, 0)).
     - substrate_miller: Miller index for the substrate surface (default: (1, 1, 1)).
-    - output_file: Optional path to save the generated interface structure as a file.
+    - output_file_name: Optional path to save the generated interface structure as a file.
     - max_area: Maximum supercell area for matching (default: 400.0).
     - max_length_tol: Length tolerance for ZSL matching (default: 0.03).
     - max_angle_tol: Angle tolerance for ZSL matching (default: 0.01).
@@ -338,67 +337,67 @@ def build_interface(
             film_millers=[film_miller],
             substrate_millers=[substrate_miller]
         ))
+        if not matches:
+            return {"error": "No lattice matches found. Try adjusting tolerances or Miller indices."}
+        
+        # Use the first match (lowest strain preferred)
+        match = sorted(matches, key=lambda m: m.von_mises_strain)[0]
+
+        # Initialize CoherentInterfaceBuilder without sl_vectors
+        builder = CoherentInterfaceBuilder(
+            film_structure=film,
+            substrate_structure=substrate,
+            film_miller=match.film_miller,
+            substrate_miller=match.substrate_miller,
+            zslgen=analyzer  # Pass the analyzer as zslgen to use the same matching parameters
+        )
+
+        # Get terminations
+        terminations = builder.terminations
+        if not terminations:
+            return {"error": "No terminations available for the selected slabs."}
+
+        # Use the first termination pair
+        termination = terminations[0]
+
+        # Adjust vacuum_over_film if 0 to avoid overlap across PBC
+        effective_vacuum = vacuum_over_film
+        if vacuum_over_film == 0:
+            effective_vacuum = gap  # Set to gap to symmetrize interfaces and prevent PBC overlap
+
+        # Generate interfaces
+        interfaces = list(builder.get_interfaces(
+            termination=termination,
+            gap=gap,
+            vacuum_over_film=effective_vacuum,
+            film_thickness=film_thickness,
+            substrate_thickness=substrate_thickness,
+            in_layers=in_layers
+        ))
+
+        if not interfaces:
+            return{"error": "No interfaces generated. Check parameters."}
+
+        # Return the first interface
+        interface = interfaces[0]
+
+        # Optional adjustments
+        interface.translate_sites(range(len(interface)), [0, 0, 0])  # Translate for better visualization
     except Exception as e:
         return {"error": f"Error during matching: {str(e)}"}
     
     
-    if not matches:
-        return {"error": "No lattice matches found. Try adjusting tolerances or Miller indices."}
-
-    # Use the first match (lowest strain preferred)
-    match = sorted(matches, key=lambda m: m.von_mises_strain)[0]
-
-    # Initialize CoherentInterfaceBuilder without sl_vectors
-    builder = CoherentInterfaceBuilder(
-        film_structure=film,
-        substrate_structure=substrate,
-        film_miller=match.film_miller,
-        substrate_miller=match.substrate_miller,
-        zslgen=analyzer  # Pass the analyzer as zslgen to use the same matching parameters
-    )
-
-    # Get terminations
-    terminations = builder.terminations
-    if not terminations:
-        return {"error": "No terminations available for the selected slabs."}
-
-    # Use the first termination pair
-    termination = terminations[0]
-
-    # Adjust vacuum_over_film if 0 to avoid overlap across PBC
-    effective_vacuum = vacuum_over_film
-    if vacuum_over_film == 0:
-        effective_vacuum = gap  # Set to gap to symmetrize interfaces and prevent PBC overlap
-
-    # Generate interfaces
-    interfaces = list(builder.get_interfaces(
-        termination=termination,
-        gap=gap,
-        vacuum_over_film=effective_vacuum,
-        film_thickness=film_thickness,
-        substrate_thickness=substrate_thickness,
-        in_layers=in_layers
-    ))
-
-    if not interfaces:
-        return{"error": "No interfaces generated. Check parameters."}
-
-    # Return the first interface
-    interface = interfaces[0]
-
-    # Optional adjustments
-    interface.translate_sites(range(len(interface)), [0, 0, 0])  # Translate for better visualization
-
-    if output_file:
-        output_path = settings.OUTPUT_DIR / output_file
+    if output_file_name:
+        output_path = settings.OUTPUT_DIR / output_file_name
     else:
         # get the names of the input files without extensions
         film_name = Path(film_structure).stem
         substrate_name = Path(substrate_structure).stem
-        output_path = settings.OUTPUT_DIR / f"{film_name}-{substrate_name}_interface.{output_format}"
+        output_path = settings.OUTPUT_DIR / f"{film_name}-{substrate_name}_interface.extxyz"
     
     try:
-        interface.to(output_path, output_format)
+        interface = interface.to_ase_atoms()
+        write(output_path, interface)
     except Exception as e:
         return {"error": f"Failed to write interface to file: {str(e)}"}
 

@@ -3,6 +3,7 @@ from google.adk.models.lite_llm import LiteLlm
 from agentom.tools.structure_tools import generate_structure_image
 from agentom.tools.vision_tools import get_image_content
 from agentom.tools.common_tools import list_all_files
+from agentom.settings import settings
 
 agent_description = "Vision specialist for analyzing atomic structures. Inspects and interprets structure images."
 agent_instruction = """
@@ -23,7 +24,7 @@ def create_vision_agent():
     and analyze atomic structure images.
     """
     return Agent(
-        model=LiteLlm("openai/qwen3-omni-flash"),
+        model=LiteLlm(settings.VISION_MODEL),
         name="vision_agent",
         description=agent_description,
         instruction=agent_instruction,

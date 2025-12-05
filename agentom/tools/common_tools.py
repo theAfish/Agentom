@@ -68,6 +68,14 @@ def list_files(directory: str) -> str:
     """
     try:
         path = safe_path(directory)
+        # If the path is inside the logs directory, ignore it and return an empty listing
+        try:
+            if path.is_relative_to(settings.LOGS_DIR):
+                return {"files": ''}
+        except Exception:
+            # If is_relative_to isn't available for some reason, fall back to string comparison
+            if str(settings.LOGS_DIR) in str(path):
+                return {"files": ''}
         if not path.is_dir():
             return {"error": f"{directory} is not a directory"}
         files = [f.name for f in path.iterdir() if f.is_file()]
@@ -83,6 +91,14 @@ def list_all_files():
     files = {}
     for path in settings.WORKSPACE_DIR.rglob("*"):
         if path.is_file():
+            # Skip anything under the logs directory so logs are not listed
+            try:
+                if path.is_relative_to(settings.LOGS_DIR):
+                    continue
+            except Exception:
+                if str(settings.LOGS_DIR) in str(path):
+                    continue
+
             try:
                 subfolder = path.parent.relative_to(settings.WORKSPACE_DIR)
                 files.setdefault(str(subfolder), []).append(path.name)

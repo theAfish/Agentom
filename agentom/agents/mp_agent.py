@@ -11,6 +11,7 @@ from agentom.tools.mp_tools import (
     sample_data_from_json
 )
 from agentom.tools.common_tools import list_files
+from agentom.settings import settings
 
 agent_description = "MP specialist for Materials Project. Searches and downloads material structures."
 agent_instruction = """
@@ -33,7 +34,7 @@ def create_mp_agent():
     from external databases like Materials Project.
     """
     return Agent(
-        model=LiteLlm("openai/qwen-turbo"),
+        model=LiteLlm(settings.MP_MODEL),
         name="mp_agent",
         description=agent_description,
         instruction=agent_instruction,

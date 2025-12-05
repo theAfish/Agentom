@@ -23,7 +23,11 @@ class Settings(BaseSettings):
     LOG_TO_FILE: bool = True
     
     # Model Configuration
-    DEFAULT_MODEL: str = "openai/qwen3-max"
+    AGENTOM_MODEL: str = "openai/qwen3-max"
+    VISION_MODEL: str = "openai/qwen3-omni-flash"
+    WIKI_MODEL: str = "openai/qwen3-max"
+    STRUCTURE_MODEL: str = "openai/qwen3-max"
+    MP_MODEL: str = "openai/qwen-turbo"
 
     @property
     def LOGS_DIR(self) -> Path:

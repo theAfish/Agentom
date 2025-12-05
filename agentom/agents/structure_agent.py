@@ -11,6 +11,7 @@ from agentom.tools.structure_tools import (
     check_close_atoms,
 )
 from agentom.tools.common_tools import list_all_files, write_file, run_python_script
+from agentom.settings import settings
 
 agent_description = "Expert in atomic modelling using Python, ASE, and Pymatgen. Handles structure manipulation, supercell generation, and atomic calculations."
 agent_instruction = """
@@ -34,7 +35,7 @@ def create_structure_agent():
     It can read structures, perform calculations, generate supercells, and create surface slabs.
     """
     return Agent(
-        model=LiteLlm("openai/qwen3-max"),
+        model=LiteLlm(settings.STRUCTURE_MODEL),
         name="structure_agent",
         description=agent_description,
         instruction=agent_instruction,

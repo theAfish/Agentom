@@ -1,5 +1,10 @@
 """
 Utility functions for the agentom package.
+
+Note: The agent entrypoint (``agentom.agent``) registers
+``clear_temp_dir`` as a shutdown hook so temporary files are
+automatically removed on normal process exit or user-initiated
+interrupts (e.g. Ctrl+C).
 """
 import shutil
 import traceback
@@ -53,3 +58,26 @@ def clear_workspace():
             except Exception:
                 logger.exception("Failed to remove '%s'", item)
         logger.info("Cleared workspace directory: %s", settings.WORKSPACE_DIR)
+
+
+def transfer_outputs_to_target_dir(target_dir: str):
+    """
+    Transfer all files from the output directory to a specified target directory.
+
+    Args:
+        target_dir: The directory to which output files should be transferred. Should be later set by user in UI/CLI.
+    """
+    target_path = settings.WORKSPACE_DIR / target_dir
+    target_path.mkdir(parents=True, exist_ok=True)
+
+    if settings.OUTPUT_DIR.exists():
+        for item in settings.OUTPUT_DIR.iterdir():
+            try:
+                dest = target_path / item.name
+                if item.is_file():
+                    shutil.move(str(item), str(dest))
+                elif item.is_dir():
+                    shutil.move(str(item), str(dest))
+            except Exception:
+                logger.exception("Failed to transfer '%s' to '%s'", item, target_path)
+        logger.info("Transferred outputs to target directory: %s", target_path)

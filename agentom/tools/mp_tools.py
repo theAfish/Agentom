@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from ase import Atoms
+from ase.io import write
 from pymatgen.core.structure import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 
@@ -62,7 +63,7 @@ def _save_docs_to_json(docs: list, filename: str) -> Path:
         json.dump(results, f, default=str)
     return docs_info
 
-def _save_dict_to_file(structure_dict: dict, file_name: str = None, target_format: str = "cif"):
+def _save_dict_to_file(structure_dict: dict, file_name: str = None, target_format: str = "extxyz"):
     # Convert dict to pymatgen Structure
     pmg_structure = Structure.from_dict(structure_dict)
     # save to the target format using pymatgen's built-in writers
@@ -72,7 +73,8 @@ def _save_dict_to_file(structure_dict: dict, file_name: str = None, target_forma
     else:
         file_name = f"{file_name}.{target_format}"
     full_path = settings.OUTPUT_DIR / file_name
-    pmg_structure.to(filename=full_path)
+    ase_structure = pmg_structure.to_ase_atoms()
+    write(full_path, ase_structure)
     relative_path = full_path.relative_to(settings.WORKSPACE_DIR)
     return relative_path
 
@@ -146,6 +148,9 @@ def download_materials_info_by_chemical_system(
         max_energy_above_hull: Maximum energy above hull in eV (optional)
         spacegroup_symbol: Spacegroup symbol(s) (optional)
         num_results: Maximum number of results to return
+
+    Returns:
+        A string summary of the search results.
     """
     api_key = _get_mp_api_key()
     if not api_key:
@@ -168,7 +173,7 @@ def download_materials_info_by_chemical_system(
     relative_path = docs_info["relative_path"]
     to_agent_info = f"Found {docs_info['num_results']} materials in chemical system {chemical_system}. "
     to_agent_info += f"The results are stored in {relative_path} for further analysis."    
-    return to_agent_info
+    return {"result": to_agent_info}
 
 
 def download_materials_info_by_symmetry(
@@ -184,6 +189,9 @@ def download_materials_info_by_symmetry(
         spacegroup_number: Spacegroup number(s)
         elements: Optional elements to include
         num_results: Maximum number of results to return
+
+    Returns:
+        A string summary of the search results.
     """
     api_key = _get_mp_api_key()
     if not api_key:
@@ -202,7 +210,7 @@ def download_materials_info_by_symmetry(
     relative_path = docs_info["relative_path"]
     to_agent_info = f"Found {docs_info['num_results']} materials with crystal system {crystal_system}. "
     to_agent_info += f"The results are stored in {relative_path} for further analysis."
-    return to_agent_info
+    return {"result": to_agent_info}
 
 
 def download_materials_info_by_mpid(
@@ -213,6 +221,8 @@ def download_materials_info_by_mpid(
     
     Args:
         mpids: List of Materials Project IDs (e.g., ['mp-149', 'mp-13'])
+    Returns:
+        A string summary of the search results.
     """
     api_key = _get_mp_api_key()
     if not api_key:
@@ -227,7 +237,7 @@ def download_materials_info_by_mpid(
     relative_path = docs_info["relative_path"]
     to_agent_info = f"Downloaded {docs_info['num_results']} materials for given mpids. "
     to_agent_info += f"The results are stored in {relative_path} for further analysis."
-    return to_agent_info
+    return {"result": to_agent_info}
 
 
 def view_data_file(file_path: str, view_types: list[str], lines: int) -> str:
@@ -298,14 +308,14 @@ def convert_all_data_to_structure_files(
 def convert_one_datus_to_structure_file(
     data_file: str,
     index: int,
-    target_format: str = "cif"
+    target_format: str = "extxyz"
 ) -> str:
-    """Convert one structure in a data file to specified structure file (e.g., CIF).
+    """Convert one structure in a data file to specified structure file (e.g., extxyz).
     
     Args:
         data_file: Relative path to the data file (JSON)
         index: Index of the structure entry to convert (0-based)
-        target_format: Target structure file format (default: 'cif')
+        target_format: Target structure file format (default: 'extxyz')
     """
     full_path = settings.WORKSPACE_DIR / data_file
     if not full_path.exists():
