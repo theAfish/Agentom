@@ -17,15 +17,16 @@ if str(parent_dir) not in sys.path:
 
 from agentom.factory import AgentFactory
 from agentom.settings import settings
-from agentom.logging_utils import CustomLoggingPlugin
+from agentom.logging_utils import CustomLoggingPlugin, logger
+from google.adk.plugins.base_plugin import BasePlugin
 from google.adk.apps import App, ResumabilityConfig
 import atexit
 import signal
-from agentom.utils import clear_temp_dir, clear_workspace, transfer_outputs_to_target_dir, clear_output_dir
+from agentom.utils import clear_temp_dir, clear_input_dir, clear_workspace, transfer_outputs_to_target_dir, clear_output_dir
 
 
-# hard coded target dir for demo purposes, modify later when used in UI/CLI
-target_dir = "D:/Codes/agentom/_debug/outputs_archive"
+# Use configurable output archive directory
+target_dir = str(settings.OUTPUT_ARCHIVE_DIR)
 
 
 # Ensure workspace exists
@@ -57,6 +58,7 @@ def _cleanup_on_exit(signum=None, frame=None):
     try:
         transfer_outputs_to_target_dir(target_dir=target_dir)
         clear_temp_dir()
+        clear_input_dir()
         clear_workspace()
         clear_output_dir()
     except Exception:

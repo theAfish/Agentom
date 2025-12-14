@@ -28,6 +28,22 @@ def clear_temp_dir():
                 logger.exception("Failed to remove '%s'", item)
         logger.info("Cleared temporary directory: %s", settings.TEMP_DIR)
 
+def clear_input_dir():
+    """
+    Clear all files and subdirectories in the input directory.
+    This is useful for cleaning up inputs from previous runs.
+    """
+    if settings.INPUT_DIR.exists():
+        for item in settings.INPUT_DIR.iterdir():
+            try:
+                if item.is_file() or item.is_symlink():
+                    item.unlink()
+                elif item.is_dir():
+                    shutil.rmtree(item)
+            except Exception:
+                logger.exception("Failed to remove '%s'", item)
+        logger.info("Cleared input directory: %s", settings.INPUT_DIR)
+
 def clear_output_dir():
     """
     Clear all files and subdirectories in the output directory.

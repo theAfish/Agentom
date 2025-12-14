@@ -1,10 +1,15 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import BaseModel, ConfigDict
 from pathlib import Path
 from typing import Optional
 import os
+import json
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
+# Config file path
+ROOT_DIR = Path(__file__).resolve().parents[3]
+CONFIG_FILE = ROOT_DIR / "config" / "config.json"
+
+class Settings(BaseModel):
+    model_config = ConfigDict(extra='ignore')
 
     # App Info
     APP_NAME: str = "agentom"
@@ -15,7 +20,7 @@ class Settings(BaseSettings):
     # Default to the parent directory of this file (agentom package root)
     BASE_DIR: Path = Path(__file__).resolve().parent
     
-    # Allow overriding WORKSPACE_DIR via env var, default to BASE_DIR/workspace
+    # Default WORKSPACE_DIR, can be overridden by config
     WORKSPACE_DIR: Path = BASE_DIR / "workspace"
     
     # Logging
@@ -28,6 +33,30 @@ class Settings(BaseSettings):
     WIKI_MODEL: str = "openai/qwen3-max"
     STRUCTURE_MODEL: str = "openai/qwen3-max"
     MP_MODEL: str = "openai/qwen-turbo"
+
+    # Output archive directory for preserving outputs
+    OUTPUT_ARCHIVE_DIR: Optional[Path] = Path("outputs_archive")
+
+    def __init__(self, **data):
+        # Load from config file if it exists
+        if CONFIG_FILE.exists():
+            with open(CONFIG_FILE, 'r') as f:
+                config_data = json.load(f)
+            # Convert WORKSPACE_DIR to Path if present
+            if 'WORKSPACE_DIR' in config_data:
+                wd = Path(config_data['WORKSPACE_DIR'])
+                if not wd.is_absolute():
+                    wd = ROOT_DIR / wd
+                config_data['WORKSPACE_DIR'] = wd
+            # Convert OUTPUT_ARCHIVE_DIR to Path if present
+            if 'OUTPUT_ARCHIVE_DIR' in config_data:
+                od = Path(config_data['OUTPUT_ARCHIVE_DIR'])
+                if not od.is_absolute():
+                    od = ROOT_DIR / od
+                config_data['OUTPUT_ARCHIVE_DIR'] = od
+            # Update data with config
+            data.update(config_data)
+        super().__init__(**data)
 
     @property
     def LOGS_DIR(self) -> Path:
