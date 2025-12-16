@@ -11,6 +11,8 @@ import traceback
 from .settings import settings
 from agentom.logging_utils import logger
 
+# All the below logics are moved to middleware package's config and utils,
+# but kept here for backward compatibility and reference.
 
 def clear_temp_dir():
     """
@@ -83,7 +85,8 @@ def transfer_outputs_to_target_dir(target_dir: str):
     Args:
         target_dir: The directory to which output files should be transferred. Should be later set by user in UI/CLI.
     """
-    target_path = settings.WORKSPACE_DIR / target_dir
+    datetime_folder_name = settings.RUN_DATETIME.strftime("%Y%m%d_%H%M%S")
+    target_path = settings.WORKSPACE_DIR / target_dir / datetime_folder_name
     target_path.mkdir(parents=True, exist_ok=True)
 
     if settings.OUTPUT_DIR.exists():

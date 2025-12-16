@@ -22,7 +22,7 @@ from google.adk.plugins.base_plugin import BasePlugin
 from google.adk.apps import App, ResumabilityConfig
 import atexit
 import signal
-from agentom.utils import clear_temp_dir, clear_input_dir, clear_workspace, transfer_outputs_to_target_dir, clear_output_dir
+# from agentom.utils import clear_temp_dir, clear_input_dir, clear_workspace, transfer_outputs_to_target_dir, clear_output_dir
 
 
 # Use configurable output archive directory
@@ -45,35 +45,37 @@ app = App(
 )
 
 
-# !!!!!!!!!!!!!!!!!!!!!!!!
-# Ensure temporary files are cleaned up when the process exits or is interrupted
+# # !!!!!!!!!!!!!!!!!!!!!!!!
+# Now moved to services.py in middleware package, but left here commented
 
-def _cleanup_on_exit(signum=None, frame=None):
-    """Cleanup handler to remove temporary files on exit.
+# # Ensure temporary files are cleaned up when the process exits or is interrupted
 
-    This will be registered with atexit and as a handler for common
-    termination signals so tmp files are removed after a user-initiated
-    exit (e.g. KeyboardInterrupt) or normal shutdown.
-    """
-    try:
-        transfer_outputs_to_target_dir(target_dir=target_dir)
-        clear_temp_dir()
-        clear_input_dir()
-        clear_workspace()
-        clear_output_dir()
-    except Exception:
-        # Avoid raising during shutdown — best-effort cleanup
-        pass
+# def _cleanup_on_exit(signum=None, frame=None):
+#     """Cleanup handler to remove temporary files on exit.
+
+#     This will be registered with atexit and as a handler for common
+#     termination signals so tmp files are removed after a user-initiated
+#     exit (e.g. KeyboardInterrupt) or normal shutdown.
+#     """
+#     try:
+#         transfer_outputs_to_target_dir(target_dir=target_dir)
+#         clear_temp_dir()
+#         clear_input_dir()
+#         clear_workspace()
+#         clear_output_dir()
+#     except Exception:
+#         # Avoid raising during shutdown — best-effort cleanup
+#         pass
 
 
-# Register for normal interpreter exit
-atexit.register(_cleanup_on_exit)
+# # Register for normal interpreter exit
+# atexit.register(_cleanup_on_exit)
 
-# Register for common termination signals (KeyboardInterrupt and termination)
-for _sig in (signal.SIGINT, signal.SIGTERM):
-    try:
-        signal.signal(_sig, _cleanup_on_exit)
-    except Exception:
-        # Some signal operations may not be supported on all platforms — ignore
-        pass
+# # Register for common termination signals (KeyboardInterrupt and termination)
+# for _sig in (signal.SIGINT, signal.SIGTERM):
+#     try:
+#         signal.signal(_sig, _cleanup_on_exit)
+#     except Exception:
+#         # Some signal operations may not be supported on all platforms — ignore
+#         pass
 
