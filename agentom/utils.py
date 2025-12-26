@@ -11,6 +11,8 @@ import traceback
 from .settings import settings
 from agentom.logging_utils import logger
 
+# All the below logics are moved to middleware package's config and utils,
+# but kept here for backward compatibility and reference.
 
 def clear_temp_dir():
     """
@@ -27,6 +29,22 @@ def clear_temp_dir():
             except Exception:
                 logger.exception("Failed to remove '%s'", item)
         logger.info("Cleared temporary directory: %s", settings.TEMP_DIR)
+
+def clear_input_dir():
+    """
+    Clear all files and subdirectories in the input directory.
+    This is useful for cleaning up inputs from previous runs.
+    """
+    if settings.INPUT_DIR.exists():
+        for item in settings.INPUT_DIR.iterdir():
+            try:
+                if item.is_file() or item.is_symlink():
+                    item.unlink()
+                elif item.is_dir():
+                    shutil.rmtree(item)
+            except Exception:
+                logger.exception("Failed to remove '%s'", item)
+        logger.info("Cleared input directory: %s", settings.INPUT_DIR)
 
 def clear_output_dir():
     """
@@ -67,7 +85,8 @@ def transfer_outputs_to_target_dir(target_dir: str):
     Args:
         target_dir: The directory to which output files should be transferred. Should be later set by user in UI/CLI.
     """
-    target_path = settings.WORKSPACE_DIR / target_dir
+    datetime_folder_name = settings.RUN_DATETIME.strftime("%Y%m%d_%H%M%S")
+    target_path = settings.WORKSPACE_DIR / target_dir / datetime_folder_name
     target_path.mkdir(parents=True, exist_ok=True)
 
     if settings.OUTPUT_DIR.exists():
