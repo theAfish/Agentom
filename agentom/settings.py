@@ -57,10 +57,38 @@ class Settings(BaseModel):
             # Update data with config
             data.update(config_data)
         super().__init__(**data)
+        self._session_workspaces = {}
+        self._current_session = None
+
+    @property
+    def WORKSPACE_DIR(self) -> Path:
+        if self._current_session and self._current_session in self._session_workspaces:
+            return self._session_workspaces[self._current_session]
+        # Default to base workspace
+        return self.BASE_DIR / "workspace"
+
+    def set_session_workspace(self, session_id: str):
+        if session_id not in self._session_workspaces:
+            # Check for existing folder
+            existing = None
+            workspace_root = self.BASE_DIR / "workspace"
+            for item in workspace_root.iterdir():
+                if item.is_dir() and session_id in item.name:
+                    existing = item
+                    break
+            if existing:
+                self._session_workspaces[session_id] = existing
+            else:
+                dt = datetime.now()
+                session_folder = f"{dt.strftime('%Y%m%d_%H%M%S')}-{session_id}"
+                self._session_workspaces[session_id] = workspace_root / session_folder
+        self._current_session = session_id
+        # Ensure directories exist
+        self.ensure_directories()
 
     @property
     def LOGS_DIR(self) -> Path:
-        return self.WORKSPACE_DIR / "logs"
+        return self.BASE_DIR / "workspace" / "logs"
 
     @property
     def OUTPUT_DIR(self) -> Path:

@@ -13,3 +13,4 @@ workspace/
 
 
 .pytest_cache/
+.adk/
