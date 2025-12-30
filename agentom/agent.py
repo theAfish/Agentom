@@ -39,8 +39,6 @@ app = App(
     name=settings.APP_NAME,
     root_agent=agentom,
     resumability_config=ResumabilityConfig(is_resumable=True),
-    # Register our custom logging plugin so the app's runner will call
-    # our plugin hooks and the conversation/tool events will be recorded
     plugins=[CustomLoggingPlugin()],
 )
 
