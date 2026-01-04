@@ -54,6 +54,9 @@ class CustomLoggingPlugin(BasePlugin):
         # Set session-specific workspace
         session_id = invocation_context.session.id if hasattr(invocation_context, 'session') and invocation_context.session else 'default_session'
         settings.set_session_workspace(session_id)
+
+        # print("===================================================")
+        # print(f"Session workspace set to: {settings.WORKSPACE_DIR}")
         
         # Remove any existing file handlers to ensure per-session logging
         for h in logger.handlers[:]:

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional
 import os
 import json
+from datetime import datetime
 
 # Config file path
 ROOT_DIR = Path(__file__).resolve().parents[3]
@@ -20,8 +21,8 @@ class Settings(BaseModel):
     # Default to the parent directory of this file (agentom package root)
     BASE_DIR: Path = Path(__file__).resolve().parent
     
-    # Default WORKSPACE_DIR, can be overridden by config
-    WORKSPACE_DIR: Path = BASE_DIR / "workspace"
+    # Default WORKSPACE_ROOT, can be overridden by config
+    WORKSPACE_ROOT: Path = BASE_DIR / "workspace"
     
     # Logging
     LOG_LEVEL: str = "INFO"
@@ -42,12 +43,12 @@ class Settings(BaseModel):
         if CONFIG_FILE.exists():
             with open(CONFIG_FILE, 'r') as f:
                 config_data = json.load(f)
-            # Convert WORKSPACE_DIR to Path if present
-            if 'WORKSPACE_DIR' in config_data:
-                wd = Path(config_data['WORKSPACE_DIR'])
+            # Convert WORKSPACE_ROOT to Path if present
+            if 'WORKSPACE_ROOT' in config_data:
+                wd = Path(config_data['WORKSPACE_ROOT'])
                 if not wd.is_absolute():
                     wd = ROOT_DIR / wd
-                config_data['WORKSPACE_DIR'] = wd
+                config_data['WORKSPACE_ROOT'] = wd
             # Convert OUTPUT_ARCHIVE_DIR to Path if present
             if 'OUTPUT_ARCHIVE_DIR' in config_data:
                 od = Path(config_data['OUTPUT_ARCHIVE_DIR'])
@@ -65,13 +66,13 @@ class Settings(BaseModel):
         if self._current_session and self._current_session in self._session_workspaces:
             return self._session_workspaces[self._current_session]
         # Default to base workspace
-        return self.BASE_DIR / "workspace"
+        return self.WORKSPACE_ROOT / "default_workspace"
 
     def set_session_workspace(self, session_id: str):
         if session_id not in self._session_workspaces:
             # Check for existing folder
             existing = None
-            workspace_root = self.BASE_DIR / "workspace"
+            workspace_root = self.WORKSPACE_ROOT
             for item in workspace_root.iterdir():
                 if item.is_dir() and session_id in item.name:
                     existing = item
@@ -88,7 +89,7 @@ class Settings(BaseModel):
 
     @property
     def LOGS_DIR(self) -> Path:
-        return self.BASE_DIR / "workspace" / "logs"
+        return self.WORKSPACE_ROOT / "logs"
 
     @property
     def OUTPUT_DIR(self) -> Path:
@@ -108,4 +109,4 @@ class Settings(BaseModel):
             dir_path.mkdir(parents=True, exist_ok=True)
 
 settings = Settings()
-settings.ensure_directories()
+
