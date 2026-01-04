@@ -29,8 +29,6 @@ import signal
 target_dir = str(settings.OUTPUT_ARCHIVE_DIR)
 
 
-# Ensure workspace exists
-# settings.ensure_directories()
 
 agentom = AgentFactory.create_coordinator_agent()
 

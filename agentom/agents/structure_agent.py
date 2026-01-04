@@ -13,9 +13,9 @@ from agentom.tools.structure_tools import (
 from agentom.tools.common_tools import list_all_files, write_file, run_python_script
 from agentom.settings import settings
 
-agent_description = "Expert in atomic modelling using Python, ASE, and Pymatgen. Handles structure manipulation, supercell generation, and atomic calculations."
+agent_description = "Expert in atomic modelling using Python, ASE, RDKit, and Pymatgen. Handles structure manipulation, supercell generation, and atomic calculations."
 agent_instruction = """
-You are an expert in atomic modelling using Python, ASE, and Pymatgen. Your ONLY tasks are: 
+You are an expert in atomic modelling using Python, ASE, RDKit, and Pymatgen. Your ONLY tasks are: 
 1. Read and analyze atomic structures from files.
 2. Write python scripts to perform structure manipulation and modeling.
 3. Build structures according to user specifications.
