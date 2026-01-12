@@ -6,6 +6,9 @@ from .mp_agent import create_mp_agent
 from .vision_agent import create_vision_agent
 from .wiki_agent import create_wiki_agent
 from agentom.tools.common_tools import list_all_files, write_file
+from agentom.tools.transfer_tools import (
+    select_workspace_files_for_transfer,
+)
 
 
 agent_description = "Root agent that manages a specialized team of agents for materials science tasks."
@@ -22,6 +25,12 @@ If multiple agents are needed, you can request information from multiple agents 
 For complex tasks, please write a clear TODO list and guide the sub-agents for handling them. 
 Provide clear, synthesized responses to the user based on the agents' results.
 The user may provide structure files or other inputs inside the 'inputs' directory. So you can check there if needed.
+If you are working as a downstream agent, always select the desired final results and transfer back.
+
+When asked to share files with remote callers or provide files for transfer:
+- Use 'select_workspace_files_for_transfer' with paths to files generated during the session
+- File paths can be relative to the current workspace (e.g., "outputs/file.cif")
+- The tool will return downloadable HTTP URIs for remote access
 """
 
 
@@ -47,7 +56,11 @@ def create_coordinator_agent():
         name="agentom",
         description=agent_description,
         instruction=agent_instruction,
-        tools=[list_all_files, write_file],
+        tools=[
+            list_all_files,
+            write_file,
+            select_workspace_files_for_transfer,
+        ],
         sub_agents=[structure_agent, mp_agent, wiki_agent],
         output_key="last_coordination_result",
     )

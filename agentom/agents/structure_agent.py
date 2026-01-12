@@ -11,6 +11,7 @@ from agentom.tools.structure_tools import (
     check_close_atoms,
 )
 from agentom.tools.common_tools import list_all_files, write_file, run_python_script
+from agentom.tools.transfer_tools import select_workspace_files_for_transfer
 from agentom.settings import settings
 
 agent_description = "Expert in atomic modelling using Python, ASE, RDKit, and Pymatgen. Handles structure manipulation, supercell generation, and atomic calculations."
@@ -25,6 +26,7 @@ You are an expert in atomic modelling using Python, ASE, RDKit, and Pymatgen. Yo
 Always verify file existence before operations and provide clear error messages if operations fail.
 If you need to search for materials from external databases like Materials Project, you can delegate to mp_agent.
 Do not engage in tasks outside your scope.
+Always transfer back to the coordinator agent after done.
 """
 
 def create_structure_agent():
@@ -50,6 +52,7 @@ def create_structure_agent():
             write_file,
             check_close_atoms,
             run_python_script,
+            select_workspace_files_for_transfer,
             # FunctionTool(run_python_script, require_confirmation=True),
         ],
         output_key="last_ase_result",  # Auto-save agent's response

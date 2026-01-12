@@ -35,8 +35,15 @@ class Settings(BaseModel):
     STRUCTURE_MODEL: str = "openai/qwen3-max"
     MP_MODEL: str = "openai/qwen-turbo"
 
+    # A2A server configuration
+    A2A_PROTOCOL: str = "http"
+    A2A_HOST: str = "localhost"
+    A2A_PORT: int = 8001
+
     # Output archive directory for preserving outputs
     OUTPUT_ARCHIVE_DIR: Optional[Path] = Path("outputs_archive")
+
+    current_session_folder: Optional[str] = None
 
     def __init__(self, **data):
         # Load from config file if it exists
@@ -82,6 +89,7 @@ class Settings(BaseModel):
             else:
                 dt = datetime.now()
                 session_folder = f"{dt.strftime('%Y%m%d_%H%M%S')}-{session_id}"
+                self.current_session_folder = session_folder
                 self._session_workspaces[session_id] = workspace_root / session_folder
         self._current_session = session_id
         # Ensure directories exist
