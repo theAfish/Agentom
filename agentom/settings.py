@@ -4,10 +4,44 @@ from typing import Optional
 import os
 import json
 from datetime import datetime
+from dotenv import load_dotenv
 
 # Config file path
 ROOT_DIR = Path(__file__).resolve().parents[3]
 CONFIG_FILE = ROOT_DIR / "config" / "config.json"
+ENV_FILE = ROOT_DIR / "config" / ".env"
+TRACKED_ENV_KEYS = ["OPENAI_API_KEY", "OPENAI_API_BASE", "MP_API_KEY"]
+
+
+def load_env_files(override: bool = False) -> None:
+    """Load environment variables from known .env locations.
+
+    When override=True we refresh values from disk for hot-reload.
+    """
+    env_candidates = [
+        ROOT_DIR / "config" / ".env",  # preferred shared location
+        ROOT_DIR / ".env",               # backward-compatible fallback
+    ]
+    for env_path in env_candidates:
+        if env_path.exists():
+            load_dotenv(env_path, override=override)
+
+
+def _read_env_file() -> dict:
+    env_data = {}
+    if ENV_FILE.exists():
+        with open(ENV_FILE, "r", encoding="utf-8") as f:
+            for raw_line in f.readlines():
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                env_data[key.strip()] = value.strip()
+    return env_data
+
+
+# Load .env values early so downstream modules (e.g., tools) can rely on them
+load_env_files()
 
 class Settings(BaseModel):
     model_config = ConfigDict(extra='ignore')
@@ -108,5 +142,54 @@ class Settings(BaseModel):
         for dir_path in [self.WORKSPACE_DIR, self.OUTPUT_DIR, self.TEMP_DIR, self.INPUT_DIR, self.LOGS_DIR]:
             dir_path.mkdir(parents=True, exist_ok=True)
 
-settings = Settings()
+def _file_mtime(path: Path):
+    try:
+        return path.stat().st_mtime
+    except FileNotFoundError:
+        return None
+
+
+class DynamicSettings:
+    """A thin wrapper that hot-reloads config/.env when they change on disk."""
+
+    def __init__(self):
+        self._settings = Settings()
+        self._config_mtime = _file_mtime(CONFIG_FILE)
+        self._env_mtime = _file_mtime(ENV_FILE)
+
+    def _reload_if_stale(self, force: bool = False):
+        config_mtime = _file_mtime(CONFIG_FILE)
+        env_mtime = _file_mtime(ENV_FILE)
+        if not force and config_mtime == self._config_mtime and env_mtime == self._env_mtime:
+            return
+
+        # Reload env values and settings from disk
+        load_env_files(override=True)
+
+        # Remove tracked keys that were cleared from the env file
+        env_snapshot = _read_env_file()
+        for tracked in TRACKED_ENV_KEYS:
+            if tracked not in env_snapshot and tracked in os.environ:
+                os.environ.pop(tracked, None)
+
+        new_settings = Settings()
+
+        # Preserve session workspace cache so in-flight sessions remain valid
+        new_settings._session_workspaces = getattr(self._settings, "_session_workspaces", {})
+        new_settings._current_session = getattr(self._settings, "_current_session", None)
+
+        self._settings = new_settings
+        self._config_mtime = config_mtime
+        self._env_mtime = env_mtime
+
+    def reload_now(self):
+        self._reload_if_stale(force=True)
+
+    def __getattr__(self, item):
+        self._reload_if_stale()
+        return getattr(self._settings, item)
+
+
+# Shared dynamic settings instance
+settings = DynamicSettings()
 
