@@ -1,6 +1,5 @@
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
-from google.adk.tools.function_tool import FunctionTool
 from agentom.tools.structure_tools import (
     read_structure,
     read_structures_in_text,
@@ -11,6 +10,7 @@ from agentom.tools.structure_tools import (
     check_close_atoms,
 )
 from agentom.tools.common_tools import list_all_files, write_file, run_python_script
+from agentom.tools.code_graph_tool import ask_code_graph_local
 from agentom.settings import settings
 
 agent_description = "Expert in atomic modelling using Python, ASE, and Pymatgen. Handles structure manipulation, supercell generation, and atomic calculations."
@@ -24,6 +24,7 @@ You are an expert in atomic modelling using Python, ASE, and Pymatgen. Your ONLY
 6. Avoid reading structure files in text format unless you know it is short.
 Always verify file existence before operations and provide clear error messages if operations fail.
 If you need to search for materials from external databases like Materials Project, you can delegate to mp_agent.
+When you need exact pymatgen API details, use the local code-graph-rag tool to look up usage.
 Do not engage in tasks outside your scope.
 """
 
@@ -50,6 +51,7 @@ def create_structure_agent():
             write_file,
             check_close_atoms,
             run_python_script,
+            ask_code_graph_local,
             # FunctionTool(run_python_script, require_confirmation=True),
         ],
         output_key="last_ase_result",  # Auto-save agent's response
