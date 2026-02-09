@@ -16,6 +16,24 @@ from codebase_rag.config import settings as rag_settings
 _INDEXED = False
 
 def _resolve_repo_path() -> str:
+    # 1. Try to use user-defined path from settings
+    if rag_settings.TARGET_REPO_PATH:
+        target_path = Path(rag_settings.TARGET_REPO_PATH).resolve()
+        # Check if the path exists and is a directory
+        if target_path.exists() and target_path.is_dir():
+            # If it's the default placeholder path and looks like it wasn't created/intended,
+            # we might want to skip. But usually if it exists, we respect it.
+            # Assuming if user sets path or creates default path, they want to use it.
+            logger.info(f"Using user-defined repo path: {target_path}")
+            return str(target_path)
+        else:
+            # Only warn if it's NOT the default hardcoded in config (likely user intent)
+            logger.warning(
+                f"User-defined TARGET_REPO_PATH '{rag_settings.TARGET_REPO_PATH}' does not exist. "
+                "Falling back to pymatgen detection."
+            )
+
+    # 2. Fallback to pymatgen detection
     try:
         import importlib.util
         import pymatgen

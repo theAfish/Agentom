@@ -40,14 +40,14 @@ class AppConfig(BaseSettings):
     GCP_SERVICE_ACCOUNT_FILE: str | None = None
 
     DEEPSEEK_MODEL_ID: str = "deepseek-chat"
-    DEEPSEEK_API_KEY: str = None
+    DEEPSEEK_API_KEY: str | None = None
 
     LOCAL_MODEL_ENDPOINT: AnyHttpUrl = AnyHttpUrl("http://localhost:11434/v1")
     LOCAL_ORCHESTRATOR_MODEL_ID: str = "llama3"
     LOCAL_CYPHER_MODEL_ID: str = "llama3"
     LOCAL_MODEL_API_KEY: str = "ollama"
 
-    TARGET_REPO_PATH: str = "."
+    TARGET_REPO_PATH: str | None = None
     SHELL_COMMAND_TIMEOUT: int = 30
 
     MP_API_KEY: str = None
@@ -67,6 +67,10 @@ class AppConfig(BaseSettings):
                 raise ValueError(
                     "Configuration Error: GCP_PROJECT_ID is required when GEMINI_PROVIDER is 'vertex'."
                 )
+        if self.LLM_PROVIDER == "deepseek" and not self.DEEPSEEK_API_KEY:
+            raise ValueError(
+                "Configuration Error: DEEPSEEK_API_KEY is required when LLM_PROVIDER is 'deepseek'."
+            )
         return self
 
 
