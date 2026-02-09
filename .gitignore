@@ -4,6 +4,8 @@
 __pycache__/
 *.pyc
 
+*.egg-info
+
 .DS_Store
 logs/
 
@@ -13,4 +15,8 @@ workspace/
 
 
 .pytest_cache/
-.adk/
+
+session.db
+.adk
+
+*.egg-info/
