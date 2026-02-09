@@ -29,18 +29,17 @@ import signal
 target_dir = str(settings.OUTPUT_ARCHIVE_DIR)
 
 
-# Ensure workspace exists
-settings.ensure_directories()
 
 agentom = AgentFactory.create_coordinator_agent()
+
+# Expose root agent for ADK loader compatibility
+root_agent = agentom
 
 # Create the app for web UI and CLI compatibility
 app = App(
     name=settings.APP_NAME,
     root_agent=agentom,
     resumability_config=ResumabilityConfig(is_resumable=True),
-    # Register our custom logging plugin so the app's runner will call
-    # our plugin hooks and the conversation/tool events will be recorded
     plugins=[CustomLoggingPlugin()],
 )
 

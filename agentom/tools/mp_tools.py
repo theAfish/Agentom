@@ -1,7 +1,6 @@
 from typing import Optional
 from mp_api.client import MPRester
 import os
-from dotenv import load_dotenv, find_dotenv
 import json
 from pathlib import Path
 
@@ -24,15 +23,8 @@ IMPORTANT_FIELDS = [
     "nsites"
 ]
 
-# MP_API_KEY is in the .env file, same as the OPENAI_API_KEY
-
-# Load .env from the project (if present) so env vars like MP_API_KEY are available.
-dot_env_path = find_dotenv()
-if dot_env_path:
-    load_dotenv(dot_env_path)
-else:
-    # try a default load (safe even if no .env file exists)
-    load_dotenv()
+# MP_API_KEY is expected in environment variables. Optional .env files are loaded
+# centrally in agentom.settings (config/.env preferred; root .env supported).
 
 
 def _get_mp_api_key() -> str | None:
