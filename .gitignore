@@ -16,4 +16,7 @@ workspace/
 
 .pytest_cache/
 
+session.db
 .adk
+
+*.egg-info/
