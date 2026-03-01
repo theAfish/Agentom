@@ -22,6 +22,27 @@ from pymatgen.io.ase import AseAtomsAdaptor
 from agentom.settings import settings
 
 
+def _read_atoms_with_fallback(file_path: Path) -> Atoms:
+    """
+    Read an Atoms object from a file, with fallback to pymatgen if ASE fails.
+    
+    ASE doesn't handle charged species (e.g., Li+, S2-) but pymatgen does.
+    If ASE fails with a KeyError, we use pymatgen to read the structure
+    and convert it to ASE Atoms.
+    """
+    try:
+        return read(file_path)
+    except KeyError as e:
+        # If ASE fails with KeyError (e.g., charged species like Li+),
+        # try using pymatgen which handles charged species
+        try:
+            pmg_structure = Structure.from_file(str(file_path))
+            adaptor = AseAtomsAdaptor()
+            return adaptor.get_atoms(pmg_structure)
+        except Exception as pymatgen_error:
+            return {"error": f"Failed to read structure: ASE error: {str(e)}, Pymatgen error: {str(pymatgen_error)}"}
+
+
 def _load_atoms(folder: str, file_name: str) -> Atoms:
     """Loads an ASE Atoms object from disk."""
     # Handle folder being "." or empty string
@@ -32,7 +53,8 @@ def _load_atoms(folder: str, file_name: str) -> Atoms:
         
     if not file_path.exists():
         return {"error": f"File not found: {file_path}"}
-    return read(file_path)
+    
+    return _read_atoms_with_fallback(file_path)
 
 
 def _load_atoms_from_path(path_str: str) -> Atoms:
@@ -47,18 +69,18 @@ def _load_atoms_from_path(path_str: str) -> Atoms:
 
     # If the provided path exists as given (absolute or relative), use it.
     if p.exists():
-        try:
-            return read(p)
-        except Exception as e:
-            return {"error": str(e)}
+        result = _read_atoms_with_fallback(p)
+        if isinstance(result, dict) and "error" in result:
+            return result
+        return result
 
     # Try interpreting the input as relative to the workspace dir
     alt = settings.WORKSPACE_DIR / path_str
     if alt.exists():
-        try:
-            return read(alt)
-        except Exception as e:
-            return {"error": str(e)}
+        result = _read_atoms_with_fallback(alt)
+        if isinstance(result, dict) and "error" in result:
+            return result
+        return result
 
     # If path_str looks like a filename in the workspace root, delegate
     # to the existing _load_atoms helper for consistent behavior.
@@ -73,23 +95,33 @@ def read_structure(folder: str, file_name: str) -> dict:
     atoms = _load_atoms(folder, file_name)
     if isinstance(atoms, dict) and "error" in atoms:
         return {"error": atoms["error"]}
-    return {
+    
+    num_atoms = len(atoms)
+    result = {
         "file": file_name,
         "chemical_formula": atoms.get_chemical_formula(),
-        "num_atoms": len(atoms),
-        "atoms": [
+        "num_atoms": num_atoms,
+        "cell_vectors_angstrom": atoms.cell.array.tolist()
+        if atoms.cell is not None
+        else None,
+        "periodic_boundary_conditions": atoms.pbc.tolist(),
+    }
+    
+    # For structures with <= 10 atoms, provide full atom details
+    if num_atoms <= 10:
+        result["atoms"] = [
             {
                 "index": index,
                 "symbol": atom.symbol,
                 "position_angstrom": atoms.positions[index].tolist(),
             }
             for index, atom in enumerate(atoms)
-        ],
-        "cell_vectors_angstrom": atoms.cell.array.tolist()
-        if atoms.cell is not None
-        else None,
-        "periodic_boundary_conditions": atoms.pbc.tolist(),
-    }
+        ]
+    # else:
+    #     # Later potential implementation of robocrystallographer
+    #     result["note"] = f""
+    
+    return result
 
 def read_structures_in_text(folder: str, file_name: str) -> dict:
     """Read the raw structure file in text format as a string, if agents want to see and check."""
