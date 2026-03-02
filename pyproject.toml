@@ -7,7 +7,7 @@ name = "agentom"
 version = "0.1.0"
 description = "An agent-based system for materials science using google-adk"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
     {name = "Tau Lyu", email = "taoyuze.lv@ustc.edu.cn"}

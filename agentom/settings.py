@@ -67,7 +67,7 @@ class Settings(BaseModel):
     VISION_MODEL: str = "openai/qwen3-omni-flash"
     WIKI_MODEL: str = "openai/qwen3-max"
     STRUCTURE_MODEL: str = "openai/qwen3-max"
-    MP_MODEL: str = "openai/qwen-turbo"
+    MP_MODEL: str = "openai/qwen3-max"
 
     # Output archive directory for preserving outputs
     OUTPUT_ARCHIVE_DIR: Optional[Path] = Path("outputs_archive")
